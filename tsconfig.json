@@ -1,0 +1,25 @@
+{
+	"compilerOptions": {
+		"target": "ES2020",
+		"module": "ESNext",
+		"sourceMap": true,
+		"lib": ["ES2020", "ES2021"],
+		"moduleResolution": "node",
+		"rootDir": "./src",
+		"outDir": "./build",
+		"strict": true,
+		"strictPropertyInitialization": true,
+		"strictBindCallApply": true,
+		"strictFunctionTypes": true,
+		"strictNullChecks": true,
+		"allowJs": true,
+		"removeComments": true
+	},
+	"exclude": [
+        "node_modules",
+        "**/node_modules/*"
+    ],
+	"include": [
+		"./src/**/*"
+	]
+}
