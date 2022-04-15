@@ -916,12 +916,12 @@ const Parser = {
 			subject.name = subjectFields[0].innerText()?.trim()
 			assertFatal(subject.name != undefined, `parseGrades: subject.name != undefined (was ${undefined})`)
 			
+			subject.hiddenGrades = subjectFields[1].innerText()?.includes('*') ?? false
+			
 			let a = subjectFields[3].querySelector('a')
 			assertFatal(!!a, `parseGrades: !!a (was ${undefined})`)
 			
 			subject.gradesConfirmed = a.length <= 0
-			
-			//TODO: Hidden Grades
 			
 			subjects.push(subject as SubjectObj)
 			
@@ -1153,8 +1153,6 @@ async function run(provider: string, username: string, password: string) {
 	csv = await session.fetchPage(Pages.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', export_all: 1 })
 	if(csv) user = { ...user, ...Parser.parseStudents(csv) }
 	
-	//let html = await request('http://192.168.108.46:8000/Versp%C3%A4tung2.html')
-	
 	await session.logout()
 	
 	link(user as UserObj)
@@ -1182,7 +1180,6 @@ async function run(provider: string, username: string, password: string) {
 	for(let transaction of user.transactions ?? []) Joiner.joinTransaction(transaction, processed)
 	
 	return processed
-	//return user
 }
 
 //Confirm Grade (index starts with 0): https://ksw.nesa-sg.ch/index.php?pageid=21311&action=nvw_bestaetigen&id=66fb5304d45d7068&transid=e9a99d&listindex=1
