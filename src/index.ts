@@ -926,54 +926,59 @@ const Parser = {
 			subjects.push(subject as SubjectObj)
 			
 			let gradesRow: DOMObject[]
+			let gradeRows: DOMObject[] = []
 			while(subjectRowIndex + 1 < subjectRows.length && subjectRows[subjectRowIndex + 1].getAttribute('class')?.includes('detailrow')) {
 				subjectRowIndex++
 				
 				if((gradesRow = subjectRows[subjectRowIndex].querySelector('table')) && gradesRow.length == 1 && gradesRow[0]) {
-					let gradeRows = gradesRow[0].querySelector('tr')
+					let rows = gradesRow[0].querySelector('tr')
 					
-					assertFatal(!!gradeRows, `parseGrades: !!gradeRows (was ${undefined})`)
-					assertFatal(gradeRows.length >= 2, `parseGrades: gradeRows.length >= 2 (was ${gradeRows.length})`)
-					for(let i = 0; i < gradeRows.length; i++) assertFatal(!!gradeRows[i], `parseGrades: !!gradeRows[${i}] (was ${undefined})`)
+					assertFatal(!!rows, `parseGrades: !!rows (was ${undefined})`)
+					gradeRows.push(...rows)
+				}
+			}
+			
+			if(gradeRows.length > 0) {
+				assertFatal(gradeRows.length >= 2, `parseGrades: gradeRows.length >= 2 (was ${gradeRows.length})`)
+				for(let i = 0; i < gradeRows.length; i++) assertFatal(!!gradeRows[i], `parseGrades: !!gradeRows[${i}] (was ${undefined})`)
+				
+				gradeRows.shift()
+				
+				for(let gradeRowIndex = 0; gradeRowIndex < gradeRows.length; gradeRowIndex++) {
+					let gradeRow = gradeRows[gradeRowIndex]
+					let gradeFields = gradeRow.querySelector('td')
 					
-					gradeRows.shift()
+					assertFatal(!!gradeFields, `parseGrades: !!gradeFields (was ${undefined})`)
+					if(gradeFields.length == 2 && gradeRowIndex + 1 == gradeRows.length) continue;
+					assertFatal(gradeFields.length == 4, `parseGrades: gradeFields.length == 4 (was ${gradeFields.length})`)
+					for(let i = 0; i < gradeFields.length; i++) assertFatal(!!gradeFields[i], `parseGrades: !!gradeFields[${i}] (was ${undefined})`)
 					
-					for(let gradeRowIndex = 0; gradeRowIndex < gradeRows.length; gradeRowIndex++) {
-						let gradeRow = gradeRows[gradeRowIndex]
-						let gradeFields = gradeRow.querySelector('td')
-						
-						assertFatal(!!gradeFields, `parseGrades: !!gradeFields (was ${undefined})`)
-						if(gradeFields.length == 2 && gradeRowIndex + 1 == gradeRows.length) continue;
-						assertFatal(gradeFields.length == 4, `parseGrades: gradeFields.length == 4 (was ${gradeFields.length})`)
-						for(let i = 0; i < gradeFields.length; i++) assertFatal(!!gradeFields[i], `parseGrades: !!gradeFields[${i}] (was ${undefined})`)
-						
-						let grade: Partial<GradeObj> = {}
-						
-						grade.id = generateUUID()
-						
-						grade.subjectId = subject.id
-						
-						let gradeDateHTML = gradeFields[0].innerText()?.trim()
-						if(gradeDateHTML) {
-							grade.date = parseDate(`${gradeDateHTML}`, `dd.MM.yyyy`)
-							assertWarn(!!grade.date, `parseGrades: !!grade.date (was ${undefined})`)
-						}
-						
-						grade.topic = gradeFields[1].innerText()?.trim()
-						assertFatal(grade.topic != undefined, `parseGrades: grade.topic (was ${undefined})`)
-						
-						const gradeHTML = gradeFields[2].innerText()?.trim()
-						grade.grade = gradeHTML ? parseFloat(gradeHTML) : undefined
-						if(grade.grade != undefined && isNaN(grade.grade)) grade.grade = undefined
-						
-						let detailsDiv = gradeFields[2].querySelector('div')
-						if(detailsDiv && detailsDiv.length == 1 && detailsDiv[0]) grade.details = detailsDiv[0].innerText()?.trim()
-						
-						grade.weight = parseFloat(gradeFields[3].innerText()?.trim())
-						assertFatal(!isNaN(grade.weight), `parseGrades: !isNaN(grade.weight) (was ${NaN})`)
-						
-						grades.push(grade as GradeObj)
+					let grade: Partial<GradeObj> = {}
+					
+					grade.id = generateUUID()
+					
+					grade.subjectId = subject.id
+					
+					let gradeDateHTML = gradeFields[0].innerText()?.trim()
+					if(gradeDateHTML) {
+						grade.date = parseDate(`${gradeDateHTML}`, `dd.MM.yyyy`)
+						assertWarn(!!grade.date, `parseGrades: !!grade.date (was ${undefined})`)
 					}
+					
+					grade.topic = gradeFields[1].innerText()?.trim()
+					assertFatal(grade.topic != undefined, `parseGrades: grade.topic (was ${undefined})`)
+					
+					const gradeHTML = gradeFields[2].innerText()?.trim()
+					grade.grade = gradeHTML ? parseFloat(gradeHTML) : undefined
+					if(grade.grade != undefined && isNaN(grade.grade)) grade.grade = undefined
+					
+					let detailsDiv = gradeFields[2].querySelector('div')
+					if(detailsDiv && detailsDiv.length == 1 && detailsDiv[0]) grade.details = detailsDiv[0].innerText()?.trim()
+					
+					grade.weight = parseFloat(gradeFields[3].innerText()?.trim())
+					assertFatal(!isNaN(grade.weight), `parseGrades: !isNaN(grade.weight) (was ${NaN})`)
+					
+					grades.push(grade as GradeObj)
 				}
 			}
 			
