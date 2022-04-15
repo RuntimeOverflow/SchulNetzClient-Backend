@@ -944,6 +944,9 @@ const Parser = {
 				
 				gradeRows.shift()
 				
+				let gradeTotal = 0
+				let weightTotal = 0
+				
 				for(let gradeRowIndex = 0; gradeRowIndex < gradeRows.length; gradeRowIndex++) {
 					let gradeRow = gradeRows[gradeRowIndex]
 					let gradeFields = gradeRow.querySelector('td')
@@ -978,8 +981,16 @@ const Parser = {
 					grade.weight = parseFloat(gradeFields[3].innerText()?.trim())
 					assertFatal(!isNaN(grade.weight), `parseGrades: !isNaN(grade.weight) (was ${NaN})`)
 					
+					if(grade.grade) {
+						let weight = grade.weight ?? 1
+						gradeTotal += grade.grade * weight
+						weightTotal += weight
+					}
+					
 					grades.push(grade as GradeObj)
 				}
+				
+				subject.average = weightTotal > 0 ? gradeTotal / weightTotal : undefined
 			}
 			
 			if(subjectRowIndex + 1 < subjectRows.length && subjectRows[subjectRowIndex + 1].getAttribute('id')?.includes('schueleruebersicht_verlauf')) subjectRowIndex++

@@ -285,17 +285,19 @@ export class Subject implements Base {
 	
 	abbreviation: string
 	name?: string
+	average: number
 	gradesConfirmed: boolean
 	hiddenGrades: boolean
 	
 	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
 	link = () => {}
 	
-	constructor({ id, abbreviation, name, gradesConfirmed, hiddenGrades }: SubjectObj) {
+	constructor({ id, abbreviation, name, average, gradesConfirmed, hiddenGrades }: SubjectObj) {
 		this.id = id
 		
 		this.abbreviation = abbreviation
 		this.name = name
+		this.average = average
 		this.gradesConfirmed = gradesConfirmed
 		this.hiddenGrades = hiddenGrades
 	}
