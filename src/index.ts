@@ -1,4 +1,4 @@
-import { Absence, AbsenceObj, AbsenceReport, AbsenceReportObj, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, GradeObj, info, LateAbsence, LateAbsenceObj, Objectify, OpenAbsence, OpenAbsenceObj, parseDate, request, Response, Student, StudentObj, Subject, SubjectObj, Teacher, TeacherObj, Transaction, TransactionObj, UniqueId, wait, warn } from "./env.js"
+import { Absence, AbsenceObj, AbsenceReport, AbsenceReportObj, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, GradeObj, info, LateAbsence, LateAbsenceObj, Objectify, OpenAbsence, OpenAbsenceObj, parseDate, request, Response, Student, StudentObj, Subject, SubjectObj, Teacher, TeacherObj, Transaction, TransactionObj, UniqueId, wait, warn } from './env.js'
 
 /*******************\
 | Utility Functions |
@@ -84,12 +84,12 @@ class Session {
 	
 	private verifyPageAndExtractIds(dom: DOMObject) {
 		try {
-			let links = dom.querySelector('#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a')
-			assert(links.length == 1, `dom.querySelector('#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a').length != 1`)
+			const links = dom.querySelector('#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a')
+			assert(links.length == 1, 'dom.querySelector(\'#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a\').length != 1')
 			
-			let { id, transid } = extractQueryParameters(links[0].getAttribute('href'), 'https://' + this.provider)
-			assert(!!id, `id == null || id == ''`)
-			assert(!!transid, `transid == null || transid == ''`)
+			const { id, transid } = extractQueryParameters(links[0].getAttribute('href'), 'https://' + this.provider)
+			assert(!!id, 'id == null || id == \'\'')
+			assert(!!transid, 'transid == null || transid == \'\'')
 			this.id = id as string
 			this.transId = transid as string
 		} catch(e) {
@@ -114,13 +114,13 @@ class Session {
 	public get loggedIn() { return !!(this._loggedIn && this.id && this.transId && this.lastVisitedPageId != null) }
 	
 	private stateLockQueue: [(() => void), (() => void)][] = []
-	private _stateLock?: Symbol
+	private _stateLock?: symbol
 	private get stateLock() { return this._stateLock }
-	private set stateLock(value: Symbol | undefined) {
+	private set stateLock(value: symbol | undefined) {
 		this._stateLock = value
 		
 		if(!value) {
-			let next = this.stateLockQueue.pop()
+			const next = this.stateLockQueue.pop()
 			if(next) next[0]()
 			else this.stateChanging = false
 		} else this.stateChanging = true
@@ -150,9 +150,9 @@ class Session {
 	}
 	
 	private teardownLockInfrastructure() {
-		this.stableStateListeners.forEach(([_, cancel]) => cancel())
+		this.stableStateListeners.forEach(([ , cancel]) => cancel())
 		this.stableStateListeners = []
-		this.stateLockQueue.forEach(([_, cancel]) => cancel())
+		this.stateLockQueue.forEach(([ , cancel]) => cancel())
 		this.stateLockQueue = []
 		
 		this.stateLock = undefined
@@ -167,7 +167,7 @@ class Session {
 			return undefined
 		}
 		
-		let sym = Symbol()
+		const sym = Symbol()
 		this.stateLock = sym
 		return sym
 	}
@@ -179,15 +179,15 @@ class Session {
 			return undefined
 		}
 		
-		let sym = Symbol()
+		const sym = Symbol()
 		this.stateLock = sym
 		return sym
 	}
 	
 	private async forcefullyAcquireStateLock() {
-		this.stableStateListeners.forEach(([_, cancel]) => cancel())
+		this.stableStateListeners.forEach(([ , cancel]) => cancel())
 		this.stableStateListeners = []
-		this.stateLockQueue.forEach(([_, cancel]) => cancel())
+		this.stateLockQueue.forEach(([ , cancel]) => cancel())
 		this.stateLockQueue = []
 		
 		try {
@@ -196,12 +196,12 @@ class Session {
 			return undefined
 		}
 		
-		let sym = Symbol()
+		const sym = Symbol()
 		this.stateLock = sym
 		return sym
 	}
 	
-	public releaseStateLock(key: Symbol) {
+	public releaseStateLock(key: symbol) {
 		if(key === this.stateLock) this.stateLock = undefined
 	}
 	
@@ -232,8 +232,8 @@ class Session {
 	}
 	
 	private updateCookies(resp: Response) {
-		if(resp.headers["set-cookie"]) {
-			let raw = resp.headers["set-cookie"]
+		if(resp.headers['set-cookie']) {
+			let raw = resp.headers['set-cookie']
 			
 			let key: string | undefined = undefined
 			let metadata = false
@@ -270,14 +270,14 @@ class Session {
 	| Timeout Handling |
 	\******************/
 	
-	private sessionTimerRunning: boolean = false
+	private sessionTimerRunning = false
 	private waitKey?: symbol
 	
 	private async resetTimeout() {
 		if(!this.loggedIn) return false
 		
 		try {
-			let response = await request(`https://${this.provider}/xajax_js.php?pageid=${this.lastVisitedPageId}&id=${this.id}&transid=${this.transId}`, { method: 'POST', body: 'xajax=reset_timeout', headers: { 'Cookie': this.cookieString } })
+			const response = await request(`https://${this.provider}/xajax_js.php?pageid=${this.lastVisitedPageId}&id=${this.id}&transid=${this.transId}`, { method: 'POST', body: 'xajax=reset_timeout', headers: { 'Cookie': this.cookieString } })
 			
 			this.updateCookies(response)
 		} catch(e) {
@@ -296,7 +296,7 @@ class Session {
 		
 		try {
 			do {
-				let promise = wait(25 * 60 * 1000)
+				const promise = wait(25 * 60 * 1000)
 				this.waitKey = promise.waitKey
 				await promise
 			} while(await this.resetTimeout())
@@ -317,7 +317,7 @@ class Session {
 	public async login() {
 		if(this.loggedIn) return
 		
-		let stateLock = await this.acquireStateLockWithPriority()
+		let stateLock: symbol | undefined = await this.acquireStateLockWithPriority()
 		assert(!!stateLock, 'login(): Failed to acquire state lock')
 		stateLock = stateLock as symbol
 		
@@ -329,18 +329,18 @@ class Session {
 			
 			let html = await request(`https://${this.provider}/loginto.php`)
 			this.updateCookies(html)
-			let dom = DOMObject.parse(html.content)
+			const dom = DOMObject.parse(html.content)
 			
-			let loginHashInputs = dom.querySelector('#standardformular input[type=hidden][name=loginhash]')
-			assert(loginHashInputs.length == 1, `login(): dom.querySelector('#standardformular input[type=hidden][name=loginhash]').length != 1`)
+			const loginHashInputs = dom.querySelector('#standardformular input[type=hidden][name=loginhash]')
+			assert(loginHashInputs.length == 1, 'login(): dom.querySelector(\'#standardformular input[type=hidden][name=loginhash]\').length != 1')
 			
-			let loginHash = loginHashInputs[0].getAttribute('value')
-			assert(!!loginHash, `loginHash == null || loginHash == ''`)
+			const loginHash = loginHashInputs[0].getAttribute('value')
+			assert(!!loginHash, 'loginHash == null || loginHash == \'\'')
 			
 			html = await request(`https://${this.provider}/index.php`, { method: 'POST', body: `login=${encodeURIComponent(this.username)}&passwort=${encodeURIComponent(this.password)}&loginhash=${encodeURIComponent(loginHash)}`, headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
 			this.updateCookies(html)
 			
-			let success = this.verifyPageAndExtractIds(DOMObject.parse(html.content))
+			const success = this.verifyPageAndExtractIds(DOMObject.parse(html.content))
 			assert(success, 'login(): verifyPageAndExtractIds() == false')
 			
 			this.loggedIn = true
@@ -350,7 +350,7 @@ class Session {
 			this.handleLogout()
 			
 			throw error
-		} finally {
+		} finally{
 			this.releaseStateLock(stateLock)
 		}
 	}
@@ -361,7 +361,7 @@ class Session {
 			return
 		}
 		
-		let stateLock = await this.forcefullyAcquireStateLock()
+		const stateLock = await this.forcefullyAcquireStateLock()
 		if(!stateLock) {
 			this.teardownLockInfrastructure()
 			this.handleLogout()
@@ -370,7 +370,7 @@ class Session {
 		
 		try {
 			await request(`https://${this.provider}/index.php?pageid=9999&id=${this.id}&transid=${this.transId}`, { method: 'GET', headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
-		} finally {
+		} finally{
 			this.handleLogout()
 			this.releaseStateLock(stateLock)
 		}
@@ -402,14 +402,14 @@ class Session {
 			stateLock = await this.acquireStateLock()
 			assert(!!stateLock, `fetchPage(${pageId}): Failed to acquire state lock`)
 		} else {
-			let success = await this.retainStableState()
+			const success = await this.retainStableState()
 			assert(success, `fetchPage(${pageId}): Failed to retain stable state`)
 		}
 		
 		let html: string | undefined
 		
 		try {
-			let response = await request(`https://${this.provider}/index.php?pageid=${pageId}&id=${this.id}&transid=${this.transId}${Object.entries(additionalQueryParameters).map(([ key, value ]) => `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('')}`, { method: 'GET', headers: { 'Cookie': this.cookieString } })
+			const response = await request(`https://${this.provider}/index.php?pageid=${pageId}&id=${this.id}&transid=${this.transId}${Object.entries(additionalQueryParameters).map(([ key, value ]) => `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('')}`, { method: 'GET', headers: { 'Cookie': this.cookieString } })
 			
 			html = response.content
 			
@@ -424,7 +424,7 @@ class Session {
 			html = undefined
 			
 			this.handleLogout()
-		} finally {
+		} finally{
 			if(changesState) {
 				if(stateLock) this.releaseStateLock(stateLock)
 			} else {
@@ -444,13 +444,13 @@ const Parser = {
 	parseTeachers(content: string) {
 		assertError(!!content, `parseTeachers: !!content (was ${content != undefined ? '\'\'' : undefined})`)
 		
-		let lines = content.trim().replace(/[\r\n]+/g, '\n').split('\n')
+		const lines = content.trim().replace(/[\r\n]+/g, '\n').split('\n')
 		
 		assertFatal(lines.length >= 1, `parseTeachers: lines.length >= 1 (was ${lines.length})`)
 		
 		lines.shift()
 		
-		let teachers: TeacherObj[] = []
+		const teachers: TeacherObj[] = []
 		
 		let line: string | undefined
 		while((line = lines.shift()) != undefined) {
@@ -465,7 +465,7 @@ const Parser = {
 				assertFatal(typeof matches[i][1] === 'string', `parseTeachers: typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`)
 			}
 			
-			let teacher: Partial<TeacherObj> = {}
+			const teacher: Partial<TeacherObj> = {}
 			
 			teacher.id = generateUUID()
 			
@@ -483,14 +483,14 @@ const Parser = {
 	parseStudents(content: string) {
 		assertError(!!content, `parseCourseParticipants: !!content (was ${content != undefined ? '\'\'' : undefined})`)
 		
-		let lines = content.trim().replace(/[\r\n]+/g, '\n').split('\n')
+		const lines = content.trim().replace(/[\r\n]+/g, '\n').split('\n')
 		
 		assertError(!!lines, `parseCourseParticipants: !!lines (was ${lines})`)
 		assertFatal(lines.length > 0, `parseCourseParticipants: lines.length > 0 (was ${lines.length})`)
 		
 		lines.shift()
 		
-		let students: StudentObj[] = []
+		const students: StudentObj[] = []
 		
 		let line: string | undefined
 		while((line = lines.shift()) != undefined) {
@@ -505,7 +505,7 @@ const Parser = {
 				assertFatal(typeof matches[i][1] === 'string', `parseCourseParticipants: typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`)
 			}
 			
-			let student: Partial<StudentObj> = {}
+			const student: Partial<StudentObj> = {}
 			
 			student.id = generateUUID()
 			
@@ -566,7 +566,7 @@ const Parser = {
 		
 		const table = tables[1]
 		
-		let rows = table.querySelector('tr')
+		const rows = table.querySelector('tr')
 		
 		assertFatal(!!rows, `parseTransactions: !!rows (was ${undefined})`)
 		assertFatal(rows.length >= 2, `parseTransactions: rows.length >= 2 (was ${rows.length})`)
@@ -581,32 +581,32 @@ const Parser = {
 			}
 		}
 		
-		let transactions: TransactionObj[] = []
+		const transactions: TransactionObj[] = []
 		
-		for(let row of rows) {
-			let fields = row.querySelector('td')
+		for(const row of rows) {
+			const fields = row.querySelector('td')
 			
 			assertFatal(!!fields, `parseTransactions: !!fields (was ${undefined})`)
 			assertFatal(fields.length == 4, `parseTransactions: fields.length == 4 (was ${fields.length})`)
 			for(let i = 0; i < fields.length; i++) assertFatal(!!fields[i], `parseTransactions: !!fields[${i}] (was ${undefined})`)
 			
-			let transaction: Partial<TransactionObj> = {}
+			const transaction: Partial<TransactionObj> = {}
 			
 			transaction.id = generateUUID()
 			
-			let dateHTML = fields[0].innerText()?.trim()
+			const dateHTML = fields[0].innerText()?.trim()
 			assertFatal(!!dateHTML, `parseTransactions: !!dateHTML (was ${dateHTML != undefined ? '\'\'' : undefined})`)
-			transaction.date = parseDate(dateHTML, `dd.MM.yyyy`)
+			transaction.date = parseDate(dateHTML, 'dd.MM.yyyy')
 			
 			transaction.reason = fields[1].innerText()?.trim()
 			assertFatal(!!transaction.reason, `parseTransactions: !!transaction.reason (was ${transaction.reason != undefined ? '\'\'' : undefined})`)
 			
-			let amountElement = fields[2].querySelector('span')
+			const amountElement = fields[2].querySelector('span')
 			assertFatal(!!amountElement, `parseTransactions: !!amountElement (was ${undefined})`)
 			assertFatal(amountElement.length == 1, `parseTransactions: amountElement.length == 4 (was ${amountElement.length})`)
 			assertFatal(!!amountElement[0], `parseTransactions: !!amountElement[0] (was ${undefined})`)
 			
-			let amountHTML = amountElement[0].innerText()?.trim()
+			const amountHTML = amountElement[0].innerText()?.trim()
 			assertFatal(!!amountHTML, `parseTransactions: !!amountHTML (was ${amountHTML != undefined ? '\'\'' : undefined})`)
 			transaction.amount = parseFloat(amountHTML)
 			assertFatal(!isNaN(transaction.amount), `parseTransactions: !isNaN(transaction.amount) (was ${NaN})`)
@@ -662,25 +662,25 @@ const Parser = {
 		}
 		
 		for(let absenceRowIndex = 0; absenceRowIndex < absenceRows.length; absenceRowIndex++) {
-			let absenceRow = absenceRows[absenceRowIndex]
-			let absenceFields = absenceRow.querySelector('td')
+			const absenceRow = absenceRows[absenceRowIndex]
+			const absenceFields = absenceRow.querySelector('td')
 			
 			assertFatal(!!absenceFields, `parseAbsences: !!absenceFields (was ${undefined})`)
 			assertFatal(absenceFields.length == 7, `parseAbsences: absenceFields.length == 7 (was ${absenceFields.length})`)
 			for(let i = 0; i < absenceFields.length; i++) assertFatal(!!absenceFields[i], `parseAbsences: !!absenceFields[${i}] (was ${undefined})`)
 			
-			let absence: Partial<AbsenceObj> = {}
+			const absence: Partial<AbsenceObj> = {}
 			
 			absence.id = generateUUID()
 			
-			let absenceFromDateHTML = absenceFields[0].innerText()?.trim()
+			const absenceFromDateHTML = absenceFields[0].innerText()?.trim()
 			assertFatal(!!absenceFromDateHTML, `parseAbsences: !!absenceFromDateHTML (was ${absenceFromDateHTML != undefined ? '\'\'' : undefined})`)
-			let absenceToDateHTML = absenceFields[1].innerText()?.trim()
+			const absenceToDateHTML = absenceFields[1].innerText()?.trim()
 			assertFatal(!!absenceToDateHTML, `parseAbsences: !!absenceToDateHTML (was ${absenceToDateHTML != undefined ? '\'\'' : undefined})`)
 			
-			absence.startDate = parseDate(absenceFromDateHTML, `dd.MM.yyyy`)
+			absence.startDate = parseDate(absenceFromDateHTML, 'dd.MM.yyyy')
 			assertFatal(!!absence.startDate, `parseAbsences: !!absence.startDate (was ${undefined})`)
-			absence.endDate = parseDate(absenceToDateHTML, `dd.MM.yyyy`)
+			absence.endDate = parseDate(absenceToDateHTML, 'dd.MM.yyyy')
 			assertFatal(!!absence.endDate, `parseAbsences: !!absence.endDate (was ${undefined})`)
 			
 			absence.reason = absenceFields[2].innerText()?.trim()
@@ -707,7 +707,7 @@ const Parser = {
 			if(absenceRowIndex + 1 < absenceRows.length && ([ reportsTable ] = absenceRows[absenceRowIndex + 1].querySelector('tr table')) && reportsTable) {
 				absenceRowIndex++
 				
-				let absenceReportRows = reportsTable.querySelector('tr')
+				const absenceReportRows = reportsTable.querySelector('tr')
 				
 				assertFatal(!!absenceReportRows, `parseAbsences: !!absenceReportRows (was ${undefined})`)
 				assertFatal(absenceReportRows.length >= 2, `parseAbsences: absenceReportRows.length >= 2 (was ${absenceReportRows.length})`)
@@ -717,32 +717,32 @@ const Parser = {
 				absenceReportRows.shift()
 				
 				for(let absenceReportRowIndex = 0; absenceReportRowIndex < absenceReportRows.length; absenceReportRowIndex++) {
-					let absenceReportRow = absenceReportRows[absenceReportRowIndex]
-					let absenceReportFields = absenceReportRow.querySelector('td')
+					const absenceReportRow = absenceReportRows[absenceReportRowIndex]
+					const absenceReportFields = absenceReportRow.querySelector('td')
 					
 					assertFatal(!!absenceReportFields, `parseAbsences: !!absenceReportFields (was ${undefined})`)
 					assertFatal(absenceReportFields.length == 4, `parseAbsences: absenceReportFields.length == 7 (was ${absenceReportFields.length})`)
 					for(let i = 0; i < absenceReportFields.length; i++) assertFatal(!!absenceReportFields[i], `parseAbsences: !!absenceReportFields[${i}] (was ${undefined})`)
 					
-					let absenceReport: Partial<AbsenceReportObj> = {}
+					const absenceReport: Partial<AbsenceReportObj> = {}
 					
 					absenceReport.id = generateUUID()
 					
 					absenceReport.absenceId = absence.id
 					
-					let absenceReportDateHTML = absenceReportFields[0].innerText()?.trim()
+					const absenceReportDateHTML = absenceReportFields[0].innerText()?.trim()
 					assertFatal(!!absenceReportDateHTML, `parseAbsences: !!absenceReportDateHTML (was ${absenceReportDateHTML != undefined ? '\'\'' : undefined})`)
 					
-					let absenceReportTimeHTML = absenceReportFields[1].innerText()?.trim()
+					const absenceReportTimeHTML = absenceReportFields[1].innerText()?.trim()
 					assertFatal(!!absenceReportTimeHTML, `parseAbsences: !!absenceReportTimeHTML (was ${absenceReportTimeHTML != undefined ? '\'\'' : undefined})`)
-					let [ absenceReportStartTime, absenceReportEndTime ] = absenceReportTimeHTML.split('bis').map(str => str.trim())
+					const [ absenceReportStartTime, absenceReportEndTime ] = absenceReportTimeHTML.split('bis').map(str => str.trim())
 					assertFatal(!!absenceReportStartTime, `parseAbsences: !!absenceReportStartTime (was ${absenceReportStartTime != undefined ? '\'\'' : undefined})`)
 					assertFatal(!!absenceReportEndTime, `parseAbsences: !!absenceReportEndTime (was ${absenceReportEndTime != undefined ? '\'\'' : undefined})`)
 					
-					absenceReport.startDate = parseDate(`${absenceReportDateHTML} ${absenceReportStartTime}`, `dd.MM.yyyy HH:mm`)
+					absenceReport.startDate = parseDate(`${absenceReportDateHTML} ${absenceReportStartTime}`, 'dd.MM.yyyy HH:mm')
 					assertFatal(!!absenceReport.startDate, `parseAbsences: !!absenceReport.startDate (was ${undefined})`)
 					
-					absenceReport.endDate = parseDate(`${absenceReportDateHTML} ${absenceReportEndTime}`, `dd.MM.yyyy HH:mm`)
+					absenceReport.endDate = parseDate(`${absenceReportDateHTML} ${absenceReportEndTime}`, 'dd.MM.yyyy HH:mm')
 					assertFatal(!!absenceReport.endDate, `parseAbsences: !!absenceReport.endDate (was ${undefined})`)
 					
 					absenceReport.lessonAbbreviation = absenceReportFields[2].innerText()?.trim()
@@ -780,26 +780,26 @@ const Parser = {
 			}
 		}
 		
-		for(let openAbsenceRow of openAbsenceRows) {
-			let openAbsenceFields = openAbsenceRow.querySelector('td')
+		for(const openAbsenceRow of openAbsenceRows) {
+			const openAbsenceFields = openAbsenceRow.querySelector('td')
 			
 			assertFatal(!!openAbsenceFields, `parseAbsences: !!openAbsenceFields (was ${undefined})`)
 			assertFatal(openAbsenceFields.length == 4, `parseAbsences: openAbsenceFields.length == 4 (was ${openAbsenceFields.length})`)
 			for(let i = 0; i < openAbsenceFields.length; i++) assertFatal(!!openAbsenceFields[i], `parseAbsences: !!openAbsenceFields[${i}] (was ${undefined})`)
 			
-			let openAbsence: Partial<OpenAbsenceObj> = {}
+			const openAbsence: Partial<OpenAbsenceObj> = {}
 			
 			openAbsence.id = generateUUID()
 			
-			let openAbsenceDateHTML = openAbsenceFields[0].innerText()?.trim()
+			const openAbsenceDateHTML = openAbsenceFields[0].innerText()?.trim()
 			assertFatal(!!openAbsenceDateHTML, `parseAbsences: !!openAbsenceDateHTML (was ${openAbsenceDateHTML != undefined ? '\'\'' : undefined})`)
-			let openAbsenceTimeHTML = openAbsenceFields[1].innerText()?.trim()
+			const openAbsenceTimeHTML = openAbsenceFields[1].innerText()?.trim()
 			assertFatal(!!openAbsenceTimeHTML, `parseAbsences: !!openAbsenceTimeHTML (was ${openAbsenceTimeHTML != undefined ? '\'\'' : undefined})`)
 			assertFatal(Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length == 1, `parseAbsences: Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length == 1 (was ${Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length})`)
-			let [ openAbsenceFromTime, openAbsenceToTime ] = openAbsenceTimeHTML.split('-').map(str => str.trim())
-			openAbsence.startDate = parseDate(`${openAbsenceDateHTML} ${openAbsenceFromTime}`, `dd.MM.yyyy HH:mm`)
+			const [ openAbsenceFromTime, openAbsenceToTime ] = openAbsenceTimeHTML.split('-').map(str => str.trim())
+			openAbsence.startDate = parseDate(`${openAbsenceDateHTML} ${openAbsenceFromTime}`, 'dd.MM.yyyy HH:mm')
 			assertFatal(!!openAbsence.startDate, `parseAbsences: !!openAbsence.startDate (was ${undefined})`)
-			openAbsence.endDate = parseDate(`${openAbsenceDateHTML} ${openAbsenceToTime}`, `dd.MM.yyyy HH:mm`)
+			openAbsence.endDate = parseDate(`${openAbsenceDateHTML} ${openAbsenceToTime}`, 'dd.MM.yyyy HH:mm')
 			assertFatal(!!openAbsence.endDate, `parseAbsences: !!openAbsence.endDate (was ${undefined})`)
 			
 			openAbsence.lessonAbbreviation = openAbsenceFields[2].innerText()?.trim()
@@ -827,36 +827,36 @@ const Parser = {
 				}
 			}
 			
-			for(let lateAbsenceRow of lateAbsenceTableRows) {
-				let lateAbsenceFields = lateAbsenceRow.querySelector('td')
+			for(const lateAbsenceRow of lateAbsenceTableRows) {
+				const lateAbsenceFields = lateAbsenceRow.querySelector('td')
 				
 				assertFatal(!!lateAbsenceFields, `parseAbsences: !!lateAbsenceFields (was ${undefined})`)
 				assertFatal(lateAbsenceFields.length == 5, `parseAbsences: lateAbsenceFields.length == 5 (was ${lateAbsenceFields.length})`)
 				for(let i = 0; i < lateAbsenceFields.length; i++) assertFatal(!!lateAbsenceFields[i], `parseAbsences: !!lateAbsenceFields[${i}] (was ${undefined})`)
 				
-				let lateAbsence: Partial<LateAbsenceObj> = {}
+				const lateAbsence: Partial<LateAbsenceObj> = {}
 				
 				lateAbsence.id = generateUUID()
 				
 				let lateAbsenceDateHTML = lateAbsenceFields[0].innerText()?.replaceAll('(*)', '')?.trim()
 				assertFatal(!!lateAbsenceDateHTML, `parseAbsences: !!lateAbsenceDateHTML (was ${lateAbsenceDateHTML != undefined ? '\'\'' : undefined})`)
-				let commaSeparated = lateAbsenceDateHTML.split(',')
+				const commaSeparated = lateAbsenceDateHTML.split(',')
 				assertFatal(commaSeparated.length == 2, `parseAbsences: commaSeparated.length == 2 (was ${commaSeparated.length})`)
 				lateAbsenceDateHTML = commaSeparated[1].trim()
-				let lateAbsenceTimeHTML = lateAbsenceFields[1].innerText()?.trim()
+				const lateAbsenceTimeHTML = lateAbsenceFields[1].innerText()?.trim()
 				assertFatal(!!lateAbsenceTimeHTML, `parseAbsences: !!lateAbsenceTimeHTML (was ${lateAbsenceTimeHTML != undefined ? '\'\'' : undefined})`)
-				lateAbsence.date = parseDate(`${lateAbsenceDateHTML} ${lateAbsenceTimeHTML}`, `dd.MM.yyyy HH:mm`)
+				lateAbsence.date = parseDate(`${lateAbsenceDateHTML} ${lateAbsenceTimeHTML}`, 'dd.MM.yyyy HH:mm')
 				assertFatal(!!lateAbsence.date, `parseAbsences: !!lateAbsence.date (was ${undefined})`)
 				
 				lateAbsence.reason = lateAbsenceFields[2].innerText()?.trim()
 				assertFatal(lateAbsence.reason != undefined, `parseAbsences: lateAbsence.reason != undefined (was ${undefined})`)
 				
-				let timespan = lateAbsenceFields[3].innerText()?.trim()
+				const timespan = lateAbsenceFields[3].innerText()?.trim()
 				assertFatal(!!timespan, `parseAbsences: !!timespan (was ${timespan != undefined ? '\'\'' : undefined})`)
 				lateAbsence.timespan = parseInt(timespan)
 				assertFatal(!isNaN(lateAbsence.timespan), `parseAbsences: !isNaN(lateAbsence.timespan) (was ${NaN})`)
 				
-				let excused = lateAbsenceFields[4].innerText()?.trim()
+				const excused = lateAbsenceFields[4].innerText()?.trim()
 				assertFatal(!!excused, `parseAbsences: !!excused (was ${excused != undefined ? '\'\'' : undefined})`)
 				lateAbsence.excused = excused === 'Ja'
 				
@@ -894,18 +894,18 @@ const Parser = {
 		const grades: GradeObj[] = []
 		
 		for(let subjectRowIndex = 0; subjectRowIndex < subjectRows.length; subjectRowIndex++) {
-			let subjectRow = subjectRows[subjectRowIndex]
-			let subjectFields = subjectRow.querySelector('td')
+			const subjectRow = subjectRows[subjectRowIndex]
+			const subjectFields = subjectRow.querySelector('td')
 			
 			assertFatal(!!subjectFields, `parseGrades: !!subjectFields (was ${undefined})`)
 			assertFatal(subjectFields.length == 5, `parseGrades: subjectFields.length == 5 (was ${subjectFields.length})`)
 			for(let i = 0; i < subjectFields.length; i++) assertFatal(!!subjectFields[i], `parseGrades: !!subjectFields[${i}] (was ${undefined})`)
 			
-			let subject: Partial<SubjectObj> = {}
+			const subject: Partial<SubjectObj> = {}
 			
 			subject.id = generateUUID()
 			
-			let b = subjectFields[0].querySelector('b')
+			const b = subjectFields[0].querySelector('b')
 			assertFatal(!!b, `parseGrades: !!b (was ${undefined})`)
 			assertFatal(b.length == 1, `parseGrades: b.length == 1 (was ${b.length})`)
 			for(let i = 0; i < b.length; i++) assertFatal(!!b[i], `parseGrades: !!b[${i}] (was ${undefined})`)
@@ -918,7 +918,7 @@ const Parser = {
 			
 			subject.hiddenGrades = subjectFields[1].innerText()?.includes('*') ?? false
 			
-			let a = subjectFields[3].querySelector('a')
+			const a = subjectFields[3].querySelector('a')
 			assertFatal(!!a, `parseGrades: !!a (was ${undefined})`)
 			
 			subject.gradesConfirmed = a.length <= 0
@@ -926,12 +926,12 @@ const Parser = {
 			subjects.push(subject as SubjectObj)
 			
 			let gradesRow: DOMObject[]
-			let gradeRows: DOMObject[] = []
+			const gradeRows: DOMObject[] = []
 			while(subjectRowIndex + 1 < subjectRows.length && subjectRows[subjectRowIndex + 1].getAttribute('class')?.includes('detailrow')) {
 				subjectRowIndex++
 				
 				if((gradesRow = subjectRows[subjectRowIndex].querySelector('table')) && gradesRow.length == 1 && gradesRow[0]) {
-					let rows = gradesRow[0].querySelector('tr')
+					const rows = gradesRow[0].querySelector('tr')
 					
 					assertFatal(!!rows, `parseGrades: !!rows (was ${undefined})`)
 					gradeRows.push(...rows)
@@ -948,23 +948,23 @@ const Parser = {
 				let weightTotal = 0
 				
 				for(let gradeRowIndex = 0; gradeRowIndex < gradeRows.length; gradeRowIndex++) {
-					let gradeRow = gradeRows[gradeRowIndex]
-					let gradeFields = gradeRow.querySelector('td')
+					const gradeRow = gradeRows[gradeRowIndex]
+					const gradeFields = gradeRow.querySelector('td')
 					
 					assertFatal(!!gradeFields, `parseGrades: !!gradeFields (was ${undefined})`)
-					if(gradeFields.length == 2 && gradeRowIndex + 1 == gradeRows.length) continue;
+					if(gradeFields.length == 2 && gradeRowIndex + 1 == gradeRows.length) continue
 					assertFatal(gradeFields.length == 4, `parseGrades: gradeFields.length == 4 (was ${gradeFields.length})`)
 					for(let i = 0; i < gradeFields.length; i++) assertFatal(!!gradeFields[i], `parseGrades: !!gradeFields[${i}] (was ${undefined})`)
 					
-					let grade: Partial<GradeObj> = {}
+					const grade: Partial<GradeObj> = {}
 					
 					grade.id = generateUUID()
 					
 					grade.subjectId = subject.id
 					
-					let gradeDateHTML = gradeFields[0].innerText()?.trim()
+					const gradeDateHTML = gradeFields[0].innerText()?.trim()
 					if(gradeDateHTML) {
-						grade.date = parseDate(`${gradeDateHTML}`, `dd.MM.yyyy`)
+						grade.date = parseDate(`${gradeDateHTML}`, 'dd.MM.yyyy')
 						assertWarn(!!grade.date, `parseGrades: !!grade.date (was ${undefined})`)
 					}
 					
@@ -975,14 +975,14 @@ const Parser = {
 					grade.grade = gradeHTML ? parseFloat(gradeHTML) : undefined
 					if(grade.grade != undefined && isNaN(grade.grade)) grade.grade = undefined
 					
-					let detailsDiv = gradeFields[2].querySelector('div')
+					const detailsDiv = gradeFields[2].querySelector('div')
 					if(detailsDiv && detailsDiv.length == 1 && detailsDiv[0]) grade.details = detailsDiv[0].innerText()?.trim()
 					
 					grade.weight = parseFloat(gradeFields[3].innerText()?.trim())
 					assertFatal(!isNaN(grade.weight), `parseGrades: !isNaN(grade.weight) (was ${NaN})`)
 					
 					if(grade.grade) {
-						let weight = grade.weight ?? 1
+						const weight = grade.weight ?? 1
 						gradeTotal += grade.grade * weight
 						weightTotal += weight
 					}
@@ -1011,29 +1011,29 @@ const link = (user: UserObj) => {
 	const subjectIdTable = new Map<UniqueId, SubjectObj>()
 	const absenceIdTable = new Map<UniqueId, AbsenceObj>()
 	
-	for(let teacher of user.teachers) {
+	for(const teacher of user.teachers) {
 		teacherTable[teacher.abbreviation] = teacher
 	}
 	
-	for(let subject of user.subjects) {
+	for(const subject of user.subjects) {
 		subjectTable[subject.abbreviation] = subject
 		subjectIdTable.set(subject.id, subject)
 		
 		assertFatal(!!subject.abbreviation, `link (subjects): !!subject.abbreviation (was ${subject.abbreviation != undefined ? '\'\'' : undefined})`)
-		let [ _, __, teacherAbbreviation ] = subject.abbreviation.split('-')
+		const [ , , teacherAbbreviation ] = subject.abbreviation.split('-')
 		assertFatal(!!teacherAbbreviation, `link (subjects): !!teacherAbbreviation (was ${teacherAbbreviation != undefined ? '\'\'' : undefined})`)
 		
-		let teacher = teacherTable[teacherAbbreviation]
+		const teacher = teacherTable[teacherAbbreviation]
 		assertInfo(!!teacher, `link (subjects): !!teacher (was ${undefined})`)
-		if(!teacher) continue;
+		if(!teacher) continue
 		
 		subject.teacherId = teacher.id
 		if(!teacher.subjectIds) teacher.subjectIds = []
 		teacher.subjectIds.push(subject.id)
 	}
 	
-	for(let grade of user.grades) {
-		let subject = subjectIdTable.get(grade.subjectId)
+	for(const grade of user.grades) {
+		const subject = subjectIdTable.get(grade.subjectId)
 		assertFatal(!!subject, `link (grades): !!subject (was ${undefined})`)
 		
 		if(!subject) continue
@@ -1042,20 +1042,20 @@ const link = (user: UserObj) => {
 		subject.gradeIds.push(grade.id)
 	}
 	
-	for(let openAbsence of user.openAbsences) {
-		let subject = subjectTable[openAbsence.lessonAbbreviation]
+	for(const openAbsence of user.openAbsences) {
+		const subject = subjectTable[openAbsence.lessonAbbreviation]
 		assertInfo(!!subject, `link (openAbsences): !!subject (was ${undefined})`)
-		if(!subject) continue;
+		if(!subject) continue
 		
 		openAbsence.subjectId = subject.id
 		if(!subject.openAbsenceIds) subject.openAbsenceIds = []
 		subject.openAbsenceIds.push(openAbsence.id)
 	}
 	
-	for(let absence of user.absences) absenceIdTable.set(absence.id, absence)
+	for(const absence of user.absences) absenceIdTable.set(absence.id, absence)
 	
-	for(let absenceReport of user.absenceReports) {
-		let subject = subjectTable[absenceReport.lessonAbbreviation]
+	for(const absenceReport of user.absenceReports) {
+		const subject = subjectTable[absenceReport.lessonAbbreviation]
 		assertInfo(!!subject, `link (absenceReports): !!subject (was ${undefined})`)
 		if(subject) {
 			if(!subject.absenceReportIds) subject.absenceReportIds = []
@@ -1063,7 +1063,7 @@ const link = (user: UserObj) => {
 			absenceReport.subjectId = subject.id
 		}
 		
-		let absence = absenceIdTable.get(absenceReport.absenceId)
+		const absence = absenceIdTable.get(absenceReport.absenceId)
 		assertFatal(!!absence, `link (absenceReports): !!absence (was ${undefined})`)
 		if(!absence) continue
 		
@@ -1086,55 +1086,55 @@ type JoinFunction<T> = (item: Objectify<T>, user: User) => void
 
 const Joiner = {
 	joinAbsence: ((item, user) => {
-		let absence = Absence.create(item)
+		const absence = Absence.create(item)
 		user.absences.push(absence)
 		absence.link()
 	}) as JoinFunction<Absence>,
 	
 	joinAbsenceReport: ((item, user) => {
-		let absenceReport = AbsenceReport.create(item)
+		const absenceReport = AbsenceReport.create(item)
 		user.absenceReports.push(absenceReport)
 		absenceReport.link()
 	}) as JoinFunction<AbsenceReport>,
 	
 	joinOpenAbsence: ((item, user) => {
-		let openAbsence = OpenAbsence.create(item)
+		const openAbsence = OpenAbsence.create(item)
 		user.openAbsences.push(openAbsence)
 		openAbsence.link()
 	}) as JoinFunction<OpenAbsence>,
 	
 	joinLateAbsence: ((item, user) => {
-		let lateAbsence = LateAbsence.create(item)
+		const lateAbsence = LateAbsence.create(item)
 		user.lateAbsences.push(lateAbsence)
 		lateAbsence.link()
 	}) as JoinFunction<LateAbsence>,
 	
 	joinSubject: ((item, user) => {
-		let subject = Subject.create(item)
+		const subject = Subject.create(item)
 		user.subjects.push(subject)
 		subject.link()
 	}) as JoinFunction<Subject>,
 	
 	joinGrade: ((item, user) => {
-		let grade = Grade.create(item)
+		const grade = Grade.create(item)
 		user.grades.push(grade)
 		grade.link()
 	}) as JoinFunction<Grade>,
 	
 	joinStudent: ((item, user) => {
-		let student = Student.create(item)
+		const student = Student.create(item)
 		user.students.push(student)
 		student.link()
 	}) as JoinFunction<Student>,
 	
 	joinTeacher: ((item, user) => {
-		let teacher = Teacher.create(item)
+		const teacher = Teacher.create(item)
 		user.teachers.push(teacher)
 		teacher.link()
 	}) as JoinFunction<Teacher>,
 	
 	joinTransaction: ((item, user) => {
-		let transaction = Transaction.create(item)
+		const transaction = Transaction.create(item)
 		user.transactions.push(transaction)
 		transaction.link()
 	}) as JoinFunction<Transaction>,
@@ -1144,10 +1144,11 @@ const Joiner = {
 | Testing |
 \*********/
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function run(provider: string, username: string, password: string) {
 	let user = {} as Partial<UserObj>
 	
-	let session = new Session(provider, username, password)
+	const session = new Session(provider, username, password)
 	await session.login()
 	
 	let html = await session.fetchPage(Pages.ABSENCES, true, { action: 'toggle_abs_showall' })
@@ -1161,19 +1162,19 @@ async function run(provider: string, username: string, password: string) {
 	
 	await session.fetchPage(Pages.TEACHERS, true)
 	
-	let csv = await session.fetchPage(Pages.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', export_all: 1 })
+	let csv = await session.fetchPage(Pages.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
 	if(csv) user = { ...user, ...Parser.parseTeachers(csv) }
 	
 	await session.fetchPage(Pages.STUDENTS, true)
 	
-	csv = await session.fetchPage(Pages.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', export_all: 1 })
+	csv = await session.fetchPage(Pages.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
 	if(csv) user = { ...user, ...Parser.parseStudents(csv) }
 	
 	await session.logout()
 	
 	link(user as UserObj)
 	
-	let processed: User = {
+	const processed: User = {
 		absences: [],
 		absenceReports: [],
 		openAbsences: [],
@@ -1185,15 +1186,15 @@ async function run(provider: string, username: string, password: string) {
 		transactions: [],
 	}
 	
-	for(let absence of user.absences ?? []) Joiner.joinAbsence(absence, processed)
-	for(let absenceReport of user.absenceReports ?? []) Joiner.joinAbsenceReport(absenceReport, processed)
-	for(let openAbsence of user.openAbsences ?? []) Joiner.joinOpenAbsence(openAbsence, processed)
-	for(let lateAbsence of user.lateAbsences ?? []) Joiner.joinLateAbsence(lateAbsence, processed)
-	for(let subject of user.subjects ?? []) Joiner.joinSubject(subject, processed)
-	for(let grade of user.grades ?? []) Joiner.joinGrade(grade, processed)
-	for(let student of user.students ?? []) Joiner.joinStudent(student, processed)
-	for(let teacher of user.teachers ?? []) Joiner.joinTeacher(teacher, processed)
-	for(let transaction of user.transactions ?? []) Joiner.joinTransaction(transaction, processed)
+	for(const absence of user.absences ?? []) Joiner.joinAbsence(absence, processed)
+	for(const absenceReport of user.absenceReports ?? []) Joiner.joinAbsenceReport(absenceReport, processed)
+	for(const openAbsence of user.openAbsences ?? []) Joiner.joinOpenAbsence(openAbsence, processed)
+	for(const lateAbsence of user.lateAbsences ?? []) Joiner.joinLateAbsence(lateAbsence, processed)
+	for(const subject of user.subjects ?? []) Joiner.joinSubject(subject, processed)
+	for(const grade of user.grades ?? []) Joiner.joinGrade(grade, processed)
+	for(const student of user.students ?? []) Joiner.joinStudent(student, processed)
+	for(const teacher of user.teachers ?? []) Joiner.joinTeacher(teacher, processed)
+	for(const transaction of user.transactions ?? []) Joiner.joinTransaction(transaction, processed)
 	
 	return processed
 }
