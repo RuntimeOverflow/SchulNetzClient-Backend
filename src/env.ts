@@ -1,46 +1,36 @@
 import axios, { Method } from 'axios'
 import { JSDOM } from 'jsdom'
-import { DateTime } from "luxon"
+import { DateTime } from 'luxon'
 
-export function request(url: string, options?: { method?: string, headers?: { [key: string]: string }, body?: string, ignoreStatusCode?: boolean }) {
-	return new Promise<Response>(async (resolve, reject) => {
-		try {
-			let response = await axios({ url: url, method: options?.method as Method, headers: {...options?.headers, 'User-Agent': 'SchulNetz Client Test Environment'}, data: options?.body, maxRedirects: 0, validateStatus: () =>  true })
-			
-			if(!response) {
-				reject(`${url}: NO HTTP RESPONSE`)
-				return
-			} else if(!options?.ignoreStatusCode && response.status != 200) {
-				reject(`${url}: ${response.status}`)
-				return
-			}
-			
-			let text: string | undefined
-			try {
-				text = response.data
-			} catch(error) {
-				reject(`${url}: NO DATA`)
-				return
-			}
-			
-			if(!text) {
-				reject(`${url}: NO DATA`)
-				return
-			}
-			
-			resolve(new Response(text, response.status, Object.entries(response.headers).reduce((map, [key, value]) => {
-				map[key] = (typeof value === 'string' ? value : value.join(', '))
-				return map
-			}, {} as { [key: string]: string })))
-		} catch(error) {
-			reject(`${error}`)
-		}
-	})
+export async function request(url: string, options?: { method?: string, headers?: { [key: string]: string }, body?: string, ignoreStatusCode?: boolean }) {
+	const response = await axios({ url: url, method: options?.method as Method, headers: {...options?.headers, 'User-Agent': 'SchulNetz Client Test Environment'}, data: options?.body, maxRedirects: 0, validateStatus: () =>  true })
+	
+	if(!response) {
+		throw `${url}: NO HTTP RESPONSE`
+	} else if(!options?.ignoreStatusCode && response.status != 200) {
+		throw `${url}: ${response.status}`
+	}
+	
+	let text: string | undefined
+	try {
+		text = response.data
+	} catch(error) {
+		throw `${url}: NO DATA`
+	}
+	
+	if(!text) {
+		throw `${url}: NO DATA`
+	}
+	
+	return new Response(text, response.status, Object.entries(response.headers).reduce((map, [key, value]) => {
+		map[key] = (typeof value === 'string' ? value : value.join(', '))
+		return map
+	}, {} as { [key: string]: string }))
 }
 
 export function extractQueryParameters(url: string, base?: string) {
-	let _url = new URL(url, base)
-	let params: { [key: string]: string } = {}
+	const _url = new URL(url, base)
+	const params: { [key: string]: string } = {}
 	_url.searchParams.forEach((value, key) => params[key] = value)
 	return params
 }
@@ -63,7 +53,7 @@ export function wait(millis: number) {
 }
 
 export function cancelWait(waitKey: symbol) {
-	let [ reject, timeout ] = waitCancelMap[waitKey]
+	const [ reject, timeout ] = waitCancelMap[waitKey]
 	delete waitCancelMap[waitKey]
 	clearTimeout(timeout)
 	reject()
@@ -90,14 +80,14 @@ export function parseDate(str: string, format: string): Date | undefined {
 	return !isNaN(date.getTime()) ? date : undefined
 }
 
-export type UniqueId = any
-type DateRepresentation = any
+export type UniqueId = unknown
+type DateRepresentation = unknown
 
 let _lastRandomTimestamp = Date.now()
 let _randomCounter = 0
 
 export function generateUUID() {
-	let timestamp = Date.now()
+	const timestamp = Date.now()
 	let hash
 	
 	if(timestamp == _lastRandomTimestamp) hash = `${timestamp}${_randomCounter++}`
@@ -139,9 +129,9 @@ export class DOMObject {
 	}
 	
 	innerText() {
-		let text = '';
+		let text = ''
 		
-		for(let node of Array.from(this._obj.childNodes)) {
+		for(const node of Array.from(this._obj.childNodes)) {
 			if(node.nodeType == node.TEXT_NODE) text += node.textContent ?? ''
 			else if(node.nodeType == node.ELEMENT_NODE && node.nodeName === 'BR') text += '\n'
 		}
