@@ -1,32 +1,32 @@
-import { Absence, AbsenceObj, AbsenceReport, AbsenceReportObj, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, GradeObj, info, LateAbsence, LateAbsenceObj, Objectify, OpenAbsence, OpenAbsenceObj, parseDate, request, Response, Student, StudentObj, Subject, SubjectObj, Teacher, TeacherObj, Transaction, TransactionObj, UniqueId, wait, warn } from './env.js'
+import { AbsenceObj, AbsenceReportObj, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, GradeObj, info, LateAbsenceObj, OpenAbsenceObj, parseDate, request, Response, StudentObj, SubjectObj, TeacherObj, TransactionObj, UniqueId, wait, warn } from './env.js'
 
 /*******************\
 | Utility Functions |
 \*******************/
 
-function assert(condition: boolean, errorMessage: string): void | never {
+function assert(condition: boolean, errorMessage: string) {
 	if(!condition) throw new Error(errorMessage)
 }
 
-function assertInfo(condition: boolean, errorMessage: string): void | never {
+function assertInfo(condition: boolean, errorMessage: string) {
 	if(!condition) info(errorMessage)
 }
 
-function assertWarn(condition: boolean, errorMessage: string): void | never {
+function assertWarn(condition: boolean, errorMessage: string) {
 	if(!condition) {
 		warn(errorMessage)
 		throw new Error(errorMessage)
 	}
 }
 
-function assertError(condition: boolean, errorMessage: string): void | never {
+function assertError(condition: boolean, errorMessage: string) {
 	if(!condition) {
 		error(errorMessage)
 		throw new Error(errorMessage)
 	}
 }
 
-function assertFatal(condition: boolean, errorMessage: string): void | never {
+function assertFatal(condition: boolean, errorMessage: string) {
 	if(!condition) {
 		fatal(errorMessage)
 		throw new Error(errorMessage)
@@ -50,7 +50,7 @@ enum Pages {
 
 type Page = Pages
 
-type User = { teachers: Teacher[], students: Student[], transactions: Transaction[], absences: Absence[], absenceReports: AbsenceReport[], openAbsences: OpenAbsence[], lateAbsences: LateAbsence[], subjects: Subject[], grades: Grade[] }
+//type User = { teachers: Teacher[], students: Student[], transactions: Transaction[], absences: Absence[], absenceReports: AbsenceReport[], openAbsences: OpenAbsence[], lateAbsences: LateAbsence[], subjects: Subject[], grades: Grade[] }
 
 type UserObj = { teachers: TeacherObj[], students: StudentObj[], transactions: TransactionObj[], absences: AbsenceObj[], absenceReports: AbsenceReportObj[], openAbsences: OpenAbsenceObj[], lateAbsences: LateAbsenceObj[], subjects: SubjectObj[], grades: GradeObj[] }
 
@@ -1082,7 +1082,7 @@ const link = (user: UserObj) => {
 	}
 }
 
-type JoinFunction<T> = (item: Objectify<T>, user: User) => void
+/*type JoinFunction<T> = (item: Objectify<T>, user: User) => void
 
 const Joiner = {
 	joinAbsence: ((item, user) => {
@@ -1138,7 +1138,7 @@ const Joiner = {
 		user.transactions.push(transaction)
 		transaction.link()
 	}) as JoinFunction<Transaction>,
-} as const
+} as const*/
 
 /*********\
 | Testing |
@@ -1174,7 +1174,9 @@ async function run(provider: string, username: string, password: string) {
 	
 	link(user as UserObj)
 	
-	const processed: User = {
+	return user
+	
+	/*const processed: User = {
 		absences: [],
 		absenceReports: [],
 		openAbsences: [],
@@ -1196,7 +1198,7 @@ async function run(provider: string, username: string, password: string) {
 	for(const teacher of user.teachers ?? []) Joiner.joinTeacher(teacher, processed)
 	for(const transaction of user.transactions ?? []) Joiner.joinTransaction(transaction, processed)
 	
-	return processed
+	return processed*/
 }
 
 //Confirm Grade (index starts with 0): https://ksw.nesa-sg.ch/index.php?pageid=21311&action=nvw_bestaetigen&id=66fb5304d45d7068&transid=e9a99d&listindex=1
