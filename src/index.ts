@@ -1151,7 +1151,8 @@ const Joiner = {
 \**********/
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const Fetcher = {
+// eslint-disable-next-line no-var
+var Fetcher = {
 	fetchAbsences: async (session: Session, user: UserObj) => {
 		const data = await session.fetchPage(Page.ABSENCES, true, { action: 'toggle_abs_showall' })
 		if(!data) return undefined
