@@ -1161,7 +1161,7 @@ const Fetcher = {
 		
 		link(newUser)
 		
-		return newUser
+		return parsed
 	},
 	
 	fetchGrades: async (session: Session, user: UserObj) => {
@@ -1173,7 +1173,7 @@ const Fetcher = {
 		
 		link(newUser)
 		
-		return newUser
+		return parsed
 	},
 	
 	fetchStudents: async (session: Session, user: UserObj) => {
@@ -1187,7 +1187,7 @@ const Fetcher = {
 		
 		link(newUser)
 		
-		return newUser
+		return parsed
 	},
 	
 	fetchTeachers: async (session: Session, user: UserObj) => {
@@ -1201,7 +1201,7 @@ const Fetcher = {
 		
 		link(newUser)
 		
-		return newUser
+		return parsed
 	},
 	
 	fetchTransactions: async (session: Session, user: UserObj) => {
@@ -1213,7 +1213,7 @@ const Fetcher = {
 		
 		link(newUser)
 		
-		return newUser
+		return parsed
 	},
 } as const
 
@@ -1247,15 +1247,15 @@ async function run(provider: string, username: string, password: string) {
 	csv = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
 	if(csv) user = { ...user, ...Parser.parseStudents(csv) }*/
 	
-	user = await Fetcher.fetchAbsences(session, user) ?? user
-	user = await Fetcher.fetchGrades(session, user) ?? user
-	user = await Fetcher.fetchStudents(session, user) ?? user
-	user = await Fetcher.fetchTeachers(session, user) ?? user
-	user = await Fetcher.fetchTransactions(session, user) ?? user
+	user = { ...user, ...await Fetcher.fetchAbsences(session, user) }
+	user = { ...user, ...await Fetcher.fetchGrades(session, user) }
+	user = { ...user, ...await Fetcher.fetchStudents(session, user) }
+	user = { ...user, ...await Fetcher.fetchTeachers(session, user) }
+	user = { ...user, ...await Fetcher.fetchTransactions(session, user) }
 	
 	await session.logout()
 	
-	//link(user as UserObj)
+	link(user)
 	
 	return user
 	

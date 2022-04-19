@@ -18,7 +18,7 @@ const config = {
 		'keep_fnames': false,
 		toplevel: true,
 		safari10: false,
-		reserved: ['Session', 'run'], //TODO: Remove 'run' in production
+		reserved: ['Session', 'Fetcher', 'run'], //TODO: Remove 'run' in production
 	},
 	module: false,
 	sourceMap: false,
