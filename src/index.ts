@@ -37,7 +37,7 @@ function assertFatal(condition: boolean, errorMessage: string) {
 | Constants |
 \***********/
 
-enum Pages {
+enum Page {
 	ABSENCES = 21111,
 	TEACHERS = 22352,
 	STUDENTS = 22348,
@@ -47,8 +47,6 @@ enum Pages {
 	SCHEDULE = 22202,
 	DOCUMENT_DOWNLOAD = 1012,
 }
-
-type Page = Pages
 
 //type User = { teachers: Teacher[], students: Student[], transactions: Transaction[], absences: Absence[], absenceReports: AbsenceReport[], openAbsences: OpenAbsence[], lateAbsences: LateAbsence[], subjects: Subject[], grades: Grade[] }
 
@@ -1004,81 +1002,89 @@ const Parser = {
 | Linker |
 \********/
 
-const link = (user: UserObj) => {
+const link = (user: Partial<UserObj>) => {
 	const teacherTable: { [ key: string ]: TeacherObj } = {}
 	const subjectTable: { [ key: string ]: SubjectObj } = {}
 	
 	const subjectIdTable = new Map<UniqueId, SubjectObj>()
 	const absenceIdTable = new Map<UniqueId, AbsenceObj>()
 	
-	for(const teacher of user.teachers) {
+	for(const teacher of user.teachers ?? []) {
 		teacherTable[teacher.abbreviation] = teacher
 	}
 	
-	for(const subject of user.subjects) {
-		subjectTable[subject.abbreviation] = subject
-		subjectIdTable.set(subject.id, subject)
+	for(const subject of user.subjects ?? []) {
+		try {
+			subjectTable[subject.abbreviation] = subject
+			subjectIdTable.set(subject.id, subject)
 		
-		assertFatal(!!subject.abbreviation, `link (subjects): !!subject.abbreviation (was ${subject.abbreviation != undefined ? '\'\'' : undefined})`)
-		const [ , , teacherAbbreviation ] = subject.abbreviation.split('-')
-		assertFatal(!!teacherAbbreviation, `link (subjects): !!teacherAbbreviation (was ${teacherAbbreviation != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!subject.abbreviation, `link (subjects): !!subject.abbreviation (was ${subject.abbreviation != undefined ? '\'\'' : undefined})`)
+			const [ , , teacherAbbreviation ] = subject.abbreviation.split('-')
+			assertFatal(!!teacherAbbreviation, `link (subjects): !!teacherAbbreviation (was ${teacherAbbreviation != undefined ? '\'\'' : undefined})`)
 		
-		const teacher = teacherTable[teacherAbbreviation]
-		assertInfo(!!teacher, `link (subjects): !!teacher (was ${undefined})`)
-		if(!teacher) continue
+			const teacher = teacherTable[teacherAbbreviation]
+			assertInfo(!!teacher, `link (subjects): !!teacher (was ${undefined})`)
+			if(!teacher) continue
 		
-		subject.teacherId = teacher.id
-		if(!teacher.subjectIds) teacher.subjectIds = []
-		teacher.subjectIds.push(subject.id)
+			subject.teacherId = teacher.id
+			if(!teacher.subjectIds) teacher.subjectIds = []
+			teacher.subjectIds.push(subject.id)
+		} catch(error) {}
 	}
 	
-	for(const grade of user.grades) {
-		const subject = subjectIdTable.get(grade.subjectId)
-		assertFatal(!!subject, `link (grades): !!subject (was ${undefined})`)
+	for(const grade of user.grades ?? []) {
+		try {
+			const subject = subjectIdTable.get(grade.subjectId)
+			assertFatal(!!subject, `link (grades): !!subject (was ${undefined})`)
 		
-		if(!subject) continue
+			if(!subject) continue
 		
-		if(!subject.gradeIds) subject.gradeIds = []
-		subject.gradeIds.push(grade.id)
+			if(!subject.gradeIds) subject.gradeIds = []
+			subject.gradeIds.push(grade.id)
+		} catch(error) {}
 	}
 	
-	for(const openAbsence of user.openAbsences) {
-		const subject = subjectTable[openAbsence.lessonAbbreviation]
-		assertInfo(!!subject, `link (openAbsences): !!subject (was ${undefined})`)
-		if(!subject) continue
+	for(const openAbsence of user.openAbsences ?? []) {
+		try {
+			const subject = subjectTable[openAbsence.lessonAbbreviation]
+			assertInfo(!!subject, `link (openAbsences): !!subject (was ${undefined})`)
+			if(!subject) continue
 		
-		openAbsence.subjectId = subject.id
-		if(!subject.openAbsenceIds) subject.openAbsenceIds = []
-		subject.openAbsenceIds.push(openAbsence.id)
+			openAbsence.subjectId = subject.id
+			if(!subject.openAbsenceIds) subject.openAbsenceIds = []
+			subject.openAbsenceIds.push(openAbsence.id)
+		} catch(error) {}
 	}
 	
-	for(const absence of user.absences) absenceIdTable.set(absence.id, absence)
+	for(const absence of user.absences ?? []) absenceIdTable.set(absence.id, absence)
 	
-	for(const absenceReport of user.absenceReports) {
-		const subject = subjectTable[absenceReport.lessonAbbreviation]
-		assertInfo(!!subject, `link (absenceReports): !!subject (was ${undefined})`)
-		if(subject) {
-			if(!subject.absenceReportIds) subject.absenceReportIds = []
-			subject.absenceReportIds.push(absenceReport.id)
-			absenceReport.subjectId = subject.id
-		}
-		
-		const absence = absenceIdTable.get(absenceReport.absenceId)
-		assertFatal(!!absence, `link (absenceReports): !!absence (was ${undefined})`)
-		if(!absence) continue
-		
-		if(!absence.absenceReportIds) absence.absenceReportIds = []
-		absence.absenceReportIds.push(absenceReport.id)
-		absenceReport.absenceId = absence.id
-		
-		if(subject) {
-			if(!absence.subjectIds) absence.subjectIds = []
-			if(!absence.subjectIds.includes(subject.id)) {
-				absence.subjectIds.push(subject.id)
-				if(!subject.absenceIds) subject.absenceIds = []
-				subject.absenceIds.push(absence.id)
+	for(const absenceReport of user.absenceReports ?? []) {
+		try {
+			const subject = subjectTable[absenceReport.lessonAbbreviation]
+			assertInfo(!!subject, `link (absenceReports): !!subject (was ${undefined})`)
+			if(subject) {
+				if(!subject.absenceReportIds) subject.absenceReportIds = []
+				subject.absenceReportIds.push(absenceReport.id)
+				absenceReport.subjectId = subject.id
 			}
-		}
+		
+			const absence = absenceIdTable.get(absenceReport.absenceId)
+			assertFatal(!!absence, `link (absenceReports): !!absence (was ${undefined})`)
+			if(!absence) continue
+		
+			if(!absence.absenceReportIds) absence.absenceReportIds = []
+			absence.absenceReportIds.push(absenceReport.id)
+			absenceReport.absenceId = absence.id
+		
+			if(subject) {
+				if(!absence.subjectIds) absence.subjectIds = []
+				if(!absence.subjectIds.includes(subject.id)) {
+					absence.subjectIds.push(subject.id)
+					if(!subject.absenceIds) subject.absenceIds = []
+					subject.absenceIds.push(absence.id)
+				}
+			}
+		} catch(error) {}
 	}
 }
 
@@ -1140,39 +1146,116 @@ const Joiner = {
 	}) as JoinFunction<Transaction>,
 } as const*/
 
+/**********\
+| Fetchers |
+\**********/
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const Fetcher = {
+	fetchAbsences: async (session: Session, user: UserObj) => {
+		const data = await session.fetchPage(Page.ABSENCES, true, { action: 'toggle_abs_showall' })
+		if(!data) return undefined
+		
+		const parsed = Parser.parseAbsences(data)
+		const newUser = { ...user, ...parsed }
+		
+		link(newUser)
+		
+		return newUser
+	},
+	
+	fetchGrades: async (session: Session, user: UserObj) => {
+		const data = await session.fetchPage(Page.GRADES, true)
+		if(!data) return undefined
+		
+		const parsed = Parser.parseGrades(data)
+		const newUser = { ...user, ...parsed }
+		
+		link(newUser)
+		
+		return newUser
+	},
+	
+	fetchStudents: async (session: Session, user: UserObj) => {
+		await session.fetchPage(Page.STUDENTS, true)
+		
+		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
+		if(!data) return undefined
+		
+		const parsed = Parser.parseStudents(data)
+		const newUser = { ...user, ...parsed }
+		
+		link(newUser)
+		
+		return newUser
+	},
+	
+	fetchTeachers: async (session: Session, user: UserObj) => {
+		await session.fetchPage(Page.TEACHERS, true)
+		
+		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
+		if(!data) return undefined
+		
+		const parsed = Parser.parseTeachers(data)
+		const newUser = { ...user, ...parsed }
+		
+		link(newUser)
+		
+		return newUser
+	},
+	
+	fetchTransactions: async (session: Session, user: UserObj) => {
+		const data = await session.fetchPage(Page.TRANSACTIONS, true)
+		if(!data) return undefined
+		
+		const parsed = Parser.parseTransactions(data)
+		const newUser = { ...user, ...parsed }
+		
+		link(newUser)
+		
+		return newUser
+	},
+} as const
+
 /*********\
 | Testing |
 \*********/
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function run(provider: string, username: string, password: string) {
-	let user = {} as Partial<UserObj>
+	let user = {} as UserObj
 	
 	const session = new Session(provider, username, password)
 	await session.login()
 	
-	let html = await session.fetchPage(Pages.ABSENCES, true, { action: 'toggle_abs_showall' })
+	/*let html = await session.fetchPage(Page.ABSENCES, true, { action: 'toggle_abs_showall' })
 	if(html) user = { ...user, ...Parser.parseAbsences(html) }
 	
-	html = await session.fetchPage(Pages.GRADES, true)
+	html = await session.fetchPage(Page.GRADES, true)
 	if(html) user = { ...user, ...Parser.parseGrades(html) }
 	
-	html = await session.fetchPage(Pages.TRANSACTIONS, true)
+	html = await session.fetchPage(Page.TRANSACTIONS, true)
 	if(html) user = { ...user, ...Parser.parseTransactions(html) }
 	
-	await session.fetchPage(Pages.TEACHERS, true)
+	await session.fetchPage(Page.TEACHERS, true)
 	
-	let csv = await session.fetchPage(Pages.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
+	let csv = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
 	if(csv) user = { ...user, ...Parser.parseTeachers(csv) }
 	
-	await session.fetchPage(Pages.STUDENTS, true)
+	await session.fetchPage(Page.STUDENTS, true)
 	
-	csv = await session.fetchPage(Pages.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
-	if(csv) user = { ...user, ...Parser.parseStudents(csv) }
+	csv = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
+	if(csv) user = { ...user, ...Parser.parseStudents(csv) }*/
+	
+	user = await Fetcher.fetchAbsences(session, user) ?? user
+	user = await Fetcher.fetchGrades(session, user) ?? user
+	user = await Fetcher.fetchStudents(session, user) ?? user
+	user = await Fetcher.fetchTeachers(session, user) ?? user
+	user = await Fetcher.fetchTransactions(session, user) ?? user
 	
 	await session.logout()
 	
-	link(user as UserObj)
+	//link(user as UserObj)
 	
 	return user
 	
