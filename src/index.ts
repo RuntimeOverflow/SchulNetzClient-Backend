@@ -1153,66 +1153,61 @@ const Joiner = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 // eslint-disable-next-line no-var
 var Fetcher = {
-	fetchAbsences: async (session: Session, user: UserObj) => {
+	fetchAbsences: async (session: Session, user?: UserObj) => {
 		const data = await session.fetchPage(Page.ABSENCES, true, { action: 'toggle_abs_showall' })
 		if(!data) return undefined
 		
 		const parsed = Parser.parseAbsences(data)
-		const newUser = { ...user, ...parsed }
 		
-		link(newUser)
+		if(user) link({ ...user, ...parsed })
 		
 		return parsed
 	},
 	
-	fetchGrades: async (session: Session, user: UserObj) => {
+	fetchGrades: async (session: Session, user?: UserObj) => {
 		const data = await session.fetchPage(Page.GRADES, true)
 		if(!data) return undefined
 		
 		const parsed = Parser.parseGrades(data)
-		const newUser = { ...user, ...parsed }
 		
-		link(newUser)
+		if(user) link({ ...user, ...parsed })
 		
 		return parsed
 	},
 	
-	fetchStudents: async (session: Session, user: UserObj) => {
+	fetchStudents: async (session: Session, user?: UserObj) => {
 		await session.fetchPage(Page.STUDENTS, true)
 		
 		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
 		if(!data) return undefined
 		
 		const parsed = Parser.parseStudents(data)
-		const newUser = { ...user, ...parsed }
 		
-		link(newUser)
+		if(user) link({ ...user, ...parsed })
 		
 		return parsed
 	},
 	
-	fetchTeachers: async (session: Session, user: UserObj) => {
+	fetchTeachers: async (session: Session, user?: UserObj) => {
 		await session.fetchPage(Page.TEACHERS, true)
 		
 		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
 		if(!data) return undefined
 		
 		const parsed = Parser.parseTeachers(data)
-		const newUser = { ...user, ...parsed }
 		
-		link(newUser)
+		if(user) link({ ...user, ...parsed })
 		
 		return parsed
 	},
 	
-	fetchTransactions: async (session: Session, user: UserObj) => {
+	fetchTransactions: async (session: Session, user?: UserObj) => {
 		const data = await session.fetchPage(Page.TRANSACTIONS, true)
 		if(!data) return undefined
 		
 		const parsed = Parser.parseTransactions(data)
-		const newUser = { ...user, ...parsed }
 		
-		link(newUser)
+		if(user) link({ ...user, ...parsed })
 		
 		return parsed
 	},
