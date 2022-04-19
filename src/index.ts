@@ -1,4 +1,4 @@
-import { AbsenceObj, AbsenceReportObj, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, GradeObj, info, LateAbsenceObj, OpenAbsenceObj, parseDate, request, Response, StudentObj, SubjectObj, TeacherObj, TransactionObj, UniqueId, wait, warn } from './env.js'
+import { Absence, AbsenceReport, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, info, LateAbsence, OpenAbsence, parseDate, request, Response, Student, Subject, Teacher, Transaction, UniqueId, wait, warn } from './env.js'
 
 /*******************\
 | Utility Functions |
@@ -50,7 +50,7 @@ enum Page {
 
 //type User = { teachers: Teacher[], students: Student[], transactions: Transaction[], absences: Absence[], absenceReports: AbsenceReport[], openAbsences: OpenAbsence[], lateAbsences: LateAbsence[], subjects: Subject[], grades: Grade[] }
 
-type UserObj = { teachers: TeacherObj[], students: StudentObj[], transactions: TransactionObj[], absences: AbsenceObj[], absenceReports: AbsenceReportObj[], openAbsences: OpenAbsenceObj[], lateAbsences: LateAbsenceObj[], subjects: SubjectObj[], grades: GradeObj[] }
+type User = { teachers: Teacher[], students: Student[], transactions: Transaction[], absences: Absence[], absenceReports: AbsenceReport[], openAbsences: OpenAbsence[], lateAbsences: LateAbsence[], subjects: Subject[], grades: Grade[] }
 
 /*********\
 | Session |
@@ -448,7 +448,7 @@ const Parser = {
 		
 		lines.shift()
 		
-		const teachers: TeacherObj[] = []
+		const teachers: Teacher[] = []
 		
 		let line: string | undefined
 		while((line = lines.shift()) != undefined) {
@@ -463,7 +463,7 @@ const Parser = {
 				assertFatal(typeof matches[i][1] === 'string', `parseTeachers: typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`)
 			}
 			
-			const teacher: Partial<TeacherObj> = {}
+			const teacher: Partial<Teacher> = {}
 			
 			teacher.id = generateUUID()
 			
@@ -472,10 +472,10 @@ const Parser = {
 			teacher.abbreviation = matches[2][1].trim().replace(/""/g, '"')
 			teacher.email = matches[3][1].trim().replace(/""/g, '"')
 			
-			teachers.push(teacher as TeacherObj)
+			teachers.push(teacher as Teacher)
 		}
 		
-		return { teachers } as Partial<UserObj>
+		return { teachers } as Partial<User>
 	},
 	
 	parseStudents(content: string) {
@@ -488,7 +488,7 @@ const Parser = {
 		
 		lines.shift()
 		
-		const students: StudentObj[] = []
+		const students: Student[] = []
 		
 		let line: string | undefined
 		while((line = lines.shift()) != undefined) {
@@ -503,7 +503,7 @@ const Parser = {
 				assertFatal(typeof matches[i][1] === 'string', `parseCourseParticipants: typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`)
 			}
 			
-			const student: Partial<StudentObj> = {}
+			const student: Partial<Student> = {}
 			
 			student.id = generateUUID()
 			
@@ -535,10 +535,10 @@ const Parser = {
 			student.additionalClass = matches[10][1].trim().replace(/""/g, '"')
 			student.status = matches[11][1].trim().replace(/""/g, '"')
 			
-			students.push(student as StudentObj)
+			students.push(student as Student)
 		}
 		
-		return { students } as Partial<UserObj>
+		return { students } as Partial<User>
 	},
 	
 	parseTransactions(content: string) {
@@ -579,7 +579,7 @@ const Parser = {
 			}
 		}
 		
-		const transactions: TransactionObj[] = []
+		const transactions: Transaction[] = []
 		
 		for(const row of rows) {
 			const fields = row.querySelector('td')
@@ -588,7 +588,7 @@ const Parser = {
 			assertFatal(fields.length == 4, `parseTransactions: fields.length == 4 (was ${fields.length})`)
 			for(let i = 0; i < fields.length; i++) assertFatal(!!fields[i], `parseTransactions: !!fields[${i}] (was ${undefined})`)
 			
-			const transaction: Partial<TransactionObj> = {}
+			const transaction: Partial<Transaction> = {}
 			
 			transaction.id = generateUUID()
 			
@@ -609,10 +609,10 @@ const Parser = {
 			transaction.amount = parseFloat(amountHTML)
 			assertFatal(!isNaN(transaction.amount), `parseTransactions: !isNaN(transaction.amount) (was ${NaN})`)
 			
-			transactions.push(transaction as TransactionObj)
+			transactions.push(transaction as Transaction)
 		}
 		
-		return { transactions } as Partial<UserObj>
+		return { transactions } as Partial<User>
 	},
 	
 	parseAbsences(content: string) {
@@ -636,8 +636,8 @@ const Parser = {
 		assertFatal(tables.length == 1 || tables.length == 2, `parseAbsences: tables.length == 1 || tables.length == 2 (was ${tables.length})`)
 		for(let i = 0; i < tables.length; i++) assertFatal(!!tables[i], `parseAbsences: !!tables[${i}] (was ${undefined})`)
 		
-		const absences: AbsenceObj[] = []
-		const absenceReports: AbsenceReportObj[] = []
+		const absences: Absence[] = []
+		const absenceReports: AbsenceReport[] = []
 		
 		const absenceRows = tables[0].querySelector('table.mdl-data-table > tbody > tr')
 		
@@ -667,7 +667,7 @@ const Parser = {
 			assertFatal(absenceFields.length == 7, `parseAbsences: absenceFields.length == 7 (was ${absenceFields.length})`)
 			for(let i = 0; i < absenceFields.length; i++) assertFatal(!!absenceFields[i], `parseAbsences: !!absenceFields[${i}] (was ${undefined})`)
 			
-			const absence: Partial<AbsenceObj> = {}
+			const absence: Partial<Absence> = {}
 			
 			absence.id = generateUUID()
 			
@@ -699,7 +699,7 @@ const Parser = {
 			absence.lessonCount = parseInt(lessonCount)
 			assertFatal(!isNaN(absence.lessonCount), `parseAbsences: !isNaN(absence.lessonCount) (was ${NaN})`)
 			
-			absences.push(absence as AbsenceObj)
+			absences.push(absence as Absence)
 			
 			let reportsTable: DOMObject
 			if(absenceRowIndex + 1 < absenceRows.length && ([ reportsTable ] = absenceRows[absenceRowIndex + 1].querySelector('tr table')) && reportsTable) {
@@ -722,7 +722,7 @@ const Parser = {
 					assertFatal(absenceReportFields.length == 4, `parseAbsences: absenceReportFields.length == 7 (was ${absenceReportFields.length})`)
 					for(let i = 0; i < absenceReportFields.length; i++) assertFatal(!!absenceReportFields[i], `parseAbsences: !!absenceReportFields[${i}] (was ${undefined})`)
 					
-					const absenceReport: Partial<AbsenceReportObj> = {}
+					const absenceReport: Partial<AbsenceReport> = {}
 					
 					absenceReport.id = generateUUID()
 					
@@ -749,7 +749,7 @@ const Parser = {
 					absenceReport.comment = absenceReportFields[3].innerText()?.trim()
 					assertFatal(absenceReport.comment != undefined, `parseAbsences: absenceReport.comment (was ${undefined})`)
 					
-					absenceReports.push(absenceReport as AbsenceReportObj)
+					absenceReports.push(absenceReport as AbsenceReport)
 				}
 			}
 		}
@@ -760,7 +760,7 @@ const Parser = {
 		assertFatal(openAbsencesTables.length == 1, `parseAbsences: openAbsencesTables.length == 1 (was ${openAbsencesTables.length})`)
 		for(let i = 0; i < openAbsencesTables.length; i++) assertFatal(!!openAbsencesTables[i], `parseAbsences: !!openAbsencesTables[${i}] (was ${undefined})`)
 		
-		const openAbsences: OpenAbsenceObj[] = []
+		const openAbsences: OpenAbsence[] = []
 		
 		const openAbsenceRows = openAbsencesTables[0].querySelector('tr')
 		
@@ -785,7 +785,7 @@ const Parser = {
 			assertFatal(openAbsenceFields.length == 4, `parseAbsences: openAbsenceFields.length == 4 (was ${openAbsenceFields.length})`)
 			for(let i = 0; i < openAbsenceFields.length; i++) assertFatal(!!openAbsenceFields[i], `parseAbsences: !!openAbsenceFields[${i}] (was ${undefined})`)
 			
-			const openAbsence: Partial<OpenAbsenceObj> = {}
+			const openAbsence: Partial<OpenAbsence> = {}
 			
 			openAbsence.id = generateUUID()
 			
@@ -803,10 +803,10 @@ const Parser = {
 			openAbsence.lessonAbbreviation = openAbsenceFields[2].innerText()?.trim()
 			assertFatal(openAbsence.lessonAbbreviation != undefined, `parseAbsences: openAbsence.lessonAbbreviation (was ${undefined})`)
 			
-			openAbsences.push(openAbsence as OpenAbsenceObj)
+			openAbsences.push(openAbsence as OpenAbsence)
 		}
 		
-		const lateAbsences: LateAbsenceObj[] = []
+		const lateAbsences: LateAbsence[] = []
 		
 		if(tables.length == 2) {
 			const lateAbsenceTableRows = tables[1].querySelector('tr')
@@ -832,7 +832,7 @@ const Parser = {
 				assertFatal(lateAbsenceFields.length == 5, `parseAbsences: lateAbsenceFields.length == 5 (was ${lateAbsenceFields.length})`)
 				for(let i = 0; i < lateAbsenceFields.length; i++) assertFatal(!!lateAbsenceFields[i], `parseAbsences: !!lateAbsenceFields[${i}] (was ${undefined})`)
 				
-				const lateAbsence: Partial<LateAbsenceObj> = {}
+				const lateAbsence: Partial<LateAbsence> = {}
 				
 				lateAbsence.id = generateUUID()
 				
@@ -858,11 +858,11 @@ const Parser = {
 				assertFatal(!!excused, `parseAbsences: !!excused (was ${excused != undefined ? '\'\'' : undefined})`)
 				lateAbsence.excused = excused === 'Ja'
 				
-				lateAbsences.push(lateAbsence as LateAbsenceObj)
+				lateAbsences.push(lateAbsence as LateAbsence)
 			}
 		}
 		
-		return { absences, absenceReports, openAbsences, lateAbsences } as Partial<UserObj>
+		return { absences, absenceReports, openAbsences, lateAbsences } as Partial<User>
 	},
 	
 	parseGrades(content: string) {
@@ -888,8 +888,8 @@ const Parser = {
 		
 		subjectRows.shift()
 		
-		const subjects: SubjectObj[] = []
-		const grades: GradeObj[] = []
+		const subjects: Subject[] = []
+		const grades: Grade[] = []
 		
 		for(let subjectRowIndex = 0; subjectRowIndex < subjectRows.length; subjectRowIndex++) {
 			const subjectRow = subjectRows[subjectRowIndex]
@@ -899,7 +899,7 @@ const Parser = {
 			assertFatal(subjectFields.length == 5, `parseGrades: subjectFields.length == 5 (was ${subjectFields.length})`)
 			for(let i = 0; i < subjectFields.length; i++) assertFatal(!!subjectFields[i], `parseGrades: !!subjectFields[${i}] (was ${undefined})`)
 			
-			const subject: Partial<SubjectObj> = {}
+			const subject: Partial<Subject> = {}
 			
 			subject.id = generateUUID()
 			
@@ -921,7 +921,7 @@ const Parser = {
 			
 			subject.gradesConfirmed = a.length <= 0
 			
-			subjects.push(subject as SubjectObj)
+			subjects.push(subject as Subject)
 			
 			let gradesRow: DOMObject[]
 			const gradeRows: DOMObject[] = []
@@ -954,7 +954,7 @@ const Parser = {
 					assertFatal(gradeFields.length == 4, `parseGrades: gradeFields.length == 4 (was ${gradeFields.length})`)
 					for(let i = 0; i < gradeFields.length; i++) assertFatal(!!gradeFields[i], `parseGrades: !!gradeFields[${i}] (was ${undefined})`)
 					
-					const grade: Partial<GradeObj> = {}
+					const grade: Partial<Grade> = {}
 					
 					grade.id = generateUUID()
 					
@@ -985,7 +985,7 @@ const Parser = {
 						weightTotal += weight
 					}
 					
-					grades.push(grade as GradeObj)
+					grades.push(grade as Grade)
 				}
 				
 				subject.average = weightTotal > 0 ? gradeTotal / weightTotal : undefined
@@ -994,7 +994,7 @@ const Parser = {
 			if(subjectRowIndex + 1 < subjectRows.length && subjectRows[subjectRowIndex + 1].getAttribute('id')?.includes('schueleruebersicht_verlauf')) subjectRowIndex++
 		}
 		
-		return { subjects, grades } as Partial<UserObj>
+		return { subjects, grades } as Partial<User>
 	},
 } as const
 
@@ -1002,12 +1002,12 @@ const Parser = {
 | Linker |
 \********/
 
-const link = (user: Partial<UserObj>) => {
-	const teacherTable: { [ key: string ]: TeacherObj } = {}
-	const subjectTable: { [ key: string ]: SubjectObj } = {}
+const link = (user: Partial<User>) => {
+	const teacherTable: { [ key: string ]: Teacher } = {}
+	const subjectTable: { [ key: string ]: Subject } = {}
 	
-	const subjectIdTable = new Map<UniqueId, SubjectObj>()
-	const absenceIdTable = new Map<UniqueId, AbsenceObj>()
+	const subjectIdTable = new Map<UniqueId, Subject>()
+	const absenceIdTable = new Map<UniqueId, Absence>()
 	
 	for(const teacher of user.teachers ?? []) {
 		teacherTable[teacher.abbreviation] = teacher
@@ -1088,64 +1088,6 @@ const link = (user: Partial<UserObj>) => {
 	}
 }
 
-/*type JoinFunction<T> = (item: Objectify<T>, user: User) => void
-
-const Joiner = {
-	joinAbsence: ((item, user) => {
-		const absence = Absence.create(item)
-		user.absences.push(absence)
-		absence.link()
-	}) as JoinFunction<Absence>,
-	
-	joinAbsenceReport: ((item, user) => {
-		const absenceReport = AbsenceReport.create(item)
-		user.absenceReports.push(absenceReport)
-		absenceReport.link()
-	}) as JoinFunction<AbsenceReport>,
-	
-	joinOpenAbsence: ((item, user) => {
-		const openAbsence = OpenAbsence.create(item)
-		user.openAbsences.push(openAbsence)
-		openAbsence.link()
-	}) as JoinFunction<OpenAbsence>,
-	
-	joinLateAbsence: ((item, user) => {
-		const lateAbsence = LateAbsence.create(item)
-		user.lateAbsences.push(lateAbsence)
-		lateAbsence.link()
-	}) as JoinFunction<LateAbsence>,
-	
-	joinSubject: ((item, user) => {
-		const subject = Subject.create(item)
-		user.subjects.push(subject)
-		subject.link()
-	}) as JoinFunction<Subject>,
-	
-	joinGrade: ((item, user) => {
-		const grade = Grade.create(item)
-		user.grades.push(grade)
-		grade.link()
-	}) as JoinFunction<Grade>,
-	
-	joinStudent: ((item, user) => {
-		const student = Student.create(item)
-		user.students.push(student)
-		student.link()
-	}) as JoinFunction<Student>,
-	
-	joinTeacher: ((item, user) => {
-		const teacher = Teacher.create(item)
-		user.teachers.push(teacher)
-		teacher.link()
-	}) as JoinFunction<Teacher>,
-	
-	joinTransaction: ((item, user) => {
-		const transaction = Transaction.create(item)
-		user.transactions.push(transaction)
-		transaction.link()
-	}) as JoinFunction<Transaction>,
-} as const*/
-
 /**********\
 | Fetchers |
 \**********/
@@ -1153,7 +1095,7 @@ const Joiner = {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 // eslint-disable-next-line no-var
 var Fetcher = {
-	fetchAbsences: async (session: Session, user?: UserObj) => {
+	fetchAbsences: async (session: Session, user?: User) => {
 		const data = await session.fetchPage(Page.ABSENCES, true, { action: 'toggle_abs_showall' })
 		if(!data) return undefined
 		
@@ -1164,7 +1106,7 @@ var Fetcher = {
 		return parsed
 	},
 	
-	fetchGrades: async (session: Session, user?: UserObj) => {
+	fetchGrades: async (session: Session, user?: User) => {
 		const data = await session.fetchPage(Page.GRADES, true)
 		if(!data) return undefined
 		
@@ -1175,7 +1117,7 @@ var Fetcher = {
 		return parsed
 	},
 	
-	fetchStudents: async (session: Session, user?: UserObj) => {
+	fetchStudents: async (session: Session, user?: User) => {
 		await session.fetchPage(Page.STUDENTS, true)
 		
 		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
@@ -1188,7 +1130,7 @@ var Fetcher = {
 		return parsed
 	},
 	
-	fetchTeachers: async (session: Session, user?: UserObj) => {
+	fetchTeachers: async (session: Session, user?: User) => {
 		await session.fetchPage(Page.TEACHERS, true)
 		
 		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
@@ -1201,7 +1143,7 @@ var Fetcher = {
 		return parsed
 	},
 	
-	fetchTransactions: async (session: Session, user?: UserObj) => {
+	fetchTransactions: async (session: Session, user?: User) => {
 		const data = await session.fetchPage(Page.TRANSACTIONS, true)
 		if(!data) return undefined
 		
@@ -1219,29 +1161,10 @@ var Fetcher = {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function run(provider: string, username: string, password: string) {
-	let user = {} as UserObj
+	let user = {} as User
 	
 	const session = new Session(provider, username, password)
 	await session.login()
-	
-	/*let html = await session.fetchPage(Page.ABSENCES, true, { action: 'toggle_abs_showall' })
-	if(html) user = { ...user, ...Parser.parseAbsences(html) }
-	
-	html = await session.fetchPage(Page.GRADES, true)
-	if(html) user = { ...user, ...Parser.parseGrades(html) }
-	
-	html = await session.fetchPage(Page.TRANSACTIONS, true)
-	if(html) user = { ...user, ...Parser.parseTransactions(html) }
-	
-	await session.fetchPage(Page.TEACHERS, true)
-	
-	let csv = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
-	if(csv) user = { ...user, ...Parser.parseTeachers(csv) }
-	
-	await session.fetchPage(Page.STUDENTS, true)
-	
-	csv = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
-	if(csv) user = { ...user, ...Parser.parseStudents(csv) }*/
 	
 	user = { ...user, ...await Fetcher.fetchAbsences(session, user) }
 	user = { ...user, ...await Fetcher.fetchGrades(session, user) }
@@ -1254,30 +1177,6 @@ async function run(provider: string, username: string, password: string) {
 	link(user)
 	
 	return user
-	
-	/*const processed: User = {
-		absences: [],
-		absenceReports: [],
-		openAbsences: [],
-		lateAbsences: [],
-		subjects: [],
-		grades: [],
-		students: [],
-		teachers: [],
-		transactions: [],
-	}
-	
-	for(const absence of user.absences ?? []) Joiner.joinAbsence(absence, processed)
-	for(const absenceReport of user.absenceReports ?? []) Joiner.joinAbsenceReport(absenceReport, processed)
-	for(const openAbsence of user.openAbsences ?? []) Joiner.joinOpenAbsence(openAbsence, processed)
-	for(const lateAbsence of user.lateAbsences ?? []) Joiner.joinLateAbsence(lateAbsence, processed)
-	for(const subject of user.subjects ?? []) Joiner.joinSubject(subject, processed)
-	for(const grade of user.grades ?? []) Joiner.joinGrade(grade, processed)
-	for(const student of user.students ?? []) Joiner.joinStudent(student, processed)
-	for(const teacher of user.teachers ?? []) Joiner.joinTeacher(teacher, processed)
-	for(const transaction of user.transactions ?? []) Joiner.joinTransaction(transaction, processed)
-	
-	return processed*/
 }
 
 //Confirm Grade (index starts with 0): https://ksw.nesa-sg.ch/index.php?pageid=21311&action=nvw_bestaetigen&id=66fb5304d45d7068&transid=e9a99d&listindex=1

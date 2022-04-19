@@ -144,21 +144,11 @@ export class DOMObject {
 	}
 }
 
-export type Objectify<T> = { [Key in keyof T as T[Key] extends Function ? never : Key]: T[Key] }
-
 export interface Identifiable {
 	id: UniqueId
 }
 
-interface Linkable {
-	link: () => void
-}
-
-interface Base extends Identifiable, Linkable {}
-
-export type AbsenceObj = Objectify<Absence>
-
-export class Absence implements Base {
+export type Absence = {
 	id: UniqueId
 	
 	absenceReportIds?: UniqueId[]
@@ -171,26 +161,9 @@ export class Absence implements Base {
 	deadline?: string
 	excused: boolean
 	lessonCount: number
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, startDate, endDate, reason, additionalInfo, deadline, excused, lessonCount }: AbsenceObj) {
-		this.id = id
-		
-		this.startDate = startDate
-		this.endDate = endDate
-		this.reason = reason
-		this.additionalInfo = additionalInfo
-		this.deadline = deadline
-		this.excused = excused
-		this.lessonCount = lessonCount
-	}
 }
 
-export type AbsenceReportObj = Objectify<AbsenceReport>
-
-export class AbsenceReport implements Base {
+export type AbsenceReport = {
 	id: UniqueId
 	
 	absenceId: UniqueId
@@ -200,25 +173,9 @@ export class AbsenceReport implements Base {
 	endDate: DateRepresentation
 	lessonAbbreviation: string
 	comment: string
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, absenceId, startDate, endDate, lessonAbbreviation, comment }: AbsenceReportObj) {
-		this.id = id
-		
-		this.absenceId = absenceId
-		
-		this.startDate = startDate
-		this.endDate = endDate
-		this.lessonAbbreviation = lessonAbbreviation
-		this.comment = comment
-	}
 }
 
-export type OpenAbsenceObj = Objectify<OpenAbsence>
-
-export class OpenAbsence implements Base {
+export type OpenAbsence = {
 	id: UniqueId
 	
 	subjectId?: UniqueId
@@ -226,45 +183,18 @@ export class OpenAbsence implements Base {
 	startDate: DateRepresentation
 	endDate: DateRepresentation
 	lessonAbbreviation: string
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, startDate, endDate, lessonAbbreviation }: OpenAbsenceObj) {
-		this.id = id
-		
-		this.startDate = startDate
-		this.endDate = endDate
-		this.lessonAbbreviation = lessonAbbreviation
-	}
 }
 
-export type LateAbsenceObj = Objectify<LateAbsence>
-
-export class LateAbsence implements Base {
+export type LateAbsence = {
 	id: UniqueId
 	
 	date: DateRepresentation
 	reason: string
 	timespan: number
 	excused: boolean
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, date, reason, timespan, excused }: LateAbsenceObj) {
-		this.id = id
-		
-		this.date = date
-		this.reason = reason
-		this.timespan = timespan
-		this.excused = excused
-	}
 }
 
-export type SubjectObj = Objectify<Subject>
-
-export class Subject implements Base {
+export type Subject = {
 	id: UniqueId
 	
 	absenceIds?: UniqueId[]
@@ -278,24 +208,9 @@ export class Subject implements Base {
 	average: number
 	gradesConfirmed: boolean
 	hiddenGrades: boolean
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, abbreviation, name, average, gradesConfirmed, hiddenGrades }: SubjectObj) {
-		this.id = id
-		
-		this.abbreviation = abbreviation
-		this.name = name
-		this.average = average
-		this.gradesConfirmed = gradesConfirmed
-		this.hiddenGrades = hiddenGrades
-	}
 }
 
-export type GradeObj = Objectify<Grade>
-
-export class Grade implements Base {
+export type Grade = {
 	id: UniqueId
 	
 	subjectId: UniqueId
@@ -305,26 +220,9 @@ export class Grade implements Base {
 	grade?: number
 	details?: string
 	weight: number
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, subjectId, date, topic, grade, details, weight }: GradeObj) {
-		this.id = id
-		
-		this.subjectId = subjectId
-		
-		this.date = date
-		this.topic = topic
-		this.grade = grade
-		this.details = details
-		this.weight = weight
-	}
 }
 
-export type StudentObj = Objectify<Student>
-
-export class Student implements Base {
+export type Student = {
 	id: UniqueId
 	
 	lastName: string
@@ -339,31 +237,9 @@ export class Student implements Base {
 	phone?: string
 	additionalClass?: string
 	status?: string
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, lastName, firstName, gender, degree, bilingual, clazz, address, zip, city, phone, additionalClass, status }: StudentObj) {
-		this.id = id
-		
-		this.lastName = lastName
-		this.firstName = firstName
-		this.gender = gender
-		this.degree = degree
-		this.bilingual = bilingual
-		this.clazz = clazz
-		this.address = address
-		this.zip = zip
-		this.city = city
-		this.phone = phone
-		this.additionalClass = additionalClass
-		this.status = status
-	}
 }
 
-export type TeacherObj = Objectify<Teacher>
-
-export class Teacher implements Base {
+export type Teacher = {
 	id : UniqueId
 	
 	subjectIds?: UniqueId[]
@@ -372,37 +248,12 @@ export class Teacher implements Base {
 	firstName: string
 	abbreviation: string
 	email: string
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, lastName, firstName, abbreviation, email }: TeacherObj) {
-		this.id = id
-		
-		this.lastName = lastName
-		this.firstName = firstName
-		this.abbreviation = abbreviation
-		this.email = email
-	}
 }
 
-export type TransactionObj = Objectify<Transaction>
-
-export class Transaction implements Base {
+export type Transaction = {
 	id: string
 	
 	date: DateRepresentation
 	reason: string
 	amount: number
-	
-	static create = (obj: Objectify<InstanceType<typeof this>>) => new this(obj)
-	link = () => {}
-	
-	constructor({ id, date, reason, amount }: TransactionObj) {
-		this.id = id
-		
-		this.date = date
-		this.reason = reason
-		this.amount = amount
-	}
 }
