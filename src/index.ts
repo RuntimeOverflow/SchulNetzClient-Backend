@@ -1,35 +1,86 @@
 import { Absence, AbsenceReport, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, info, LateAbsence, OpenAbsence, parseDate, request, Response, Student, Subject, Teacher, Transaction, UniqueId, wait, warn } from './env.js'
 
+// TODO: Error recovery especially for parsers
+
+/************\
+| Exceptions |
+\************/
+
+enum ExceptionLevel {
+	Info,
+	Warn,
+	Error,
+	Fatal,
+}
+
+class Exception {
+	private func: string
+	public message: string
+	
+	public level?: ExceptionLevel
+	
+	constructor(func: string, message: string) {
+		this.func = func
+		this.message = message
+	}
+}
+
+class ParserException extends Exception {}
+class LinkerException extends Exception {}
+
+class NetworkException extends Exception {
+	private url: string
+	
+	constructor(func: string, url: string, message: string) {
+		super(func, message)
+		
+		this.url = url
+	}
+}
+
+class SchulNetzException extends Exception {
+	private errorCode: number
+	
+	constructor(func: string, errorCode: number, message: string) {
+		super(func, message)
+		
+		this.errorCode = errorCode
+	}
+}
+
 /*******************\
 | Utility Functions |
 \*******************/
 
-function assert(condition: boolean, errorMessage: string) {
-	if(!condition) throw new Error(errorMessage)
+function assert(condition: boolean, exception: Exception) {
+	if(!condition) throw exception
 }
 
-function assertInfo(condition: boolean, errorMessage: string) {
-	if(!condition) info(errorMessage)
+function assertInfo(condition: boolean, exception: Exception) {
+	if(!condition) info(exception.message)
 }
 
-function assertWarn(condition: boolean, errorMessage: string) {
+function assertWarn(condition: boolean, exception: Exception) {
 	if(!condition) {
-		warn(errorMessage)
-		throw new Error(errorMessage)
+		exception.level = ExceptionLevel.Warn
+		warn(exception.message)
+		throw exception
 	}
 }
 
-function assertError(condition: boolean, errorMessage: string) {
+function assertError(condition: boolean, exception: Exception) {
 	if(!condition) {
-		error(errorMessage)
-		throw new Error(errorMessage)
+		exception.level = ExceptionLevel.Error
+		error(exception.message)
+		throw exception
 	}
 }
 
-function assertFatal(condition: boolean, errorMessage: string) {
+function assertFatal(condition: boolean, exception: Exception) {
 	if(!condition) {
-		fatal(errorMessage)
-		throw new Error(errorMessage)
+		exception.level = ExceptionLevel.Fatal
+		fatal(exception.message)
+		throw exception
 	}
 }
 
@@ -81,22 +132,14 @@ class Session {
 	private visitedPageIds = new Set<Page>()
 	
 	private verifyPageAndExtractIds(dom: DOMObject) {
-		try {
-			const links = dom.querySelector('#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a')
-			assert(links.length == 1, 'dom.querySelector(\'#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a\').length != 1')
-			
-			const { id, transid } = extractQueryParameters(links[0].getAttribute('href'), 'https://' + this.provider)
-			assert(!!id, 'id == null || id == \'\'')
-			assert(!!transid, 'transid == null || transid == \'\'')
-			this.id = id as string
-			this.transId = transid as string
-		} catch(e) {
-			warn(`${e}`)
-			
-			return false
-		}
+		const links = dom.querySelector('#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a')
+		assert(links.length == 1, new ParserException('verifyPageAndExtractIds', 'dom.querySelector(\'#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a\').length != 1'))
 		
-		return true
+		const { id, transid } = extractQueryParameters(links[0].getAttribute('href'), 'https://' + this.provider)
+		assert(!!id, new ParserException('verifyPageAndExtractIds', `id == null || id == '' (was ${id != undefined ? '\'\'' : undefined})`))
+		assert(!!transid, new ParserException('verifyPageAndExtractIds', `transid == null || transid == '' (was ${transid != undefined ? '\'\'' : undefined})`))
+		this.id = id as string
+		this.transId = transid as string
 	}
 	
 	public hasVisitedPage(page: Page) {
@@ -230,35 +273,34 @@ class Session {
 	}
 	
 	private updateCookies(resp: Response) {
-		if(resp.headers['set-cookie']) {
-			let raw = resp.headers['set-cookie']
-			
-			let key: string | undefined = undefined
-			let metadata = false
-			
-			let match
-			while(match = /(^.*?)([;=,])/.exec(raw)) {
-				if(match && match.length == 3) {
-					raw = raw.substring(match[0].length).trim()
+		let rawHeaders = resp.headers['set-cookie']
+		assert(!!rawHeaders, new ParserException('updateCookies', `!!rawHeaders (was ${undefined})`))
+		
+		let key: string | undefined = undefined
+		let metadata = false
+		
+		let match
+		while(match = /(^.*?)([;=,])/.exec(rawHeaders)) {
+			if(match && match.length == 3) {
+				rawHeaders = rawHeaders.substring(match[0].length).trim()
+				
+				if(key == undefined) {
+					key = match[1]
 					
-					if(key == undefined) {
-						key = match[1]
-						
-						if(match[2] !== '=') continue
-					} else {
-						if(match[2] !== '=' && !metadata) {
-							this.cookies[(key as string).trim()] = match[1].trim()
-						}
-						
-						key = undefined
-						
-						if(match[2] === ',') {
-							metadata = false
-							continue
-						}
-						
-						metadata = true
+					if(match[2] !== '=') continue
+				} else {
+					if(match[2] !== '=' && !metadata) {
+						this.cookies[(key as string).trim()] = match[1].trim()
 					}
+					
+					key = undefined
+					
+					if(match[2] === ',') {
+						metadata = false
+						continue
+					}
+					
+					metadata = true
 				}
 			}
 		}
@@ -316,7 +358,7 @@ class Session {
 		if(this.loggedIn) return
 		
 		let stateLock: symbol | undefined = await this.acquireStateLockWithPriority()
-		assert(!!stateLock, 'login(): Failed to acquire state lock')
+		assert(!!stateLock, new Exception('login', 'Failed to acquire state lock'))
 		stateLock = stateLock as symbol
 		
 		try {
@@ -325,29 +367,33 @@ class Session {
 				return
 			}
 			
+			// TODO: Error handling
 			let html = await request(`https://${this.provider}/loginto.php`)
 			this.updateCookies(html)
+			
+			// TODO: Error handling
 			const dom = DOMObject.parse(html.content)
 			
 			const loginHashInputs = dom.querySelector('#standardformular input[type=hidden][name=loginhash]')
-			assert(loginHashInputs.length == 1, 'login(): dom.querySelector(\'#standardformular input[type=hidden][name=loginhash]\').length != 1')
+			assert(loginHashInputs.length == 1, new ParserException('login', `dom.querySelector('#standardformular input[type=hidden][name=loginhash]').length != 1 (was ${loginHashInputs.length})`))
 			
 			const loginHash = loginHashInputs[0].getAttribute('value')
-			assert(!!loginHash, 'loginHash == null || loginHash == \'\'')
+			assert(!!loginHash, new ParserException('login', `loginHash == null || loginHash == '' ${loginHash != undefined ? '\'\'' : undefined}`))
 			
+			// TODO: Error handling
 			html = await request(`https://${this.provider}/index.php`, { method: 'POST', body: `login=${encodeURIComponent(this.username)}&passwort=${encodeURIComponent(this.password)}&loginhash=${encodeURIComponent(loginHash)}`, headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
 			this.updateCookies(html)
 			
-			const success = this.verifyPageAndExtractIds(DOMObject.parse(html.content))
-			assert(success, 'login(): verifyPageAndExtractIds() == false')
+			// TODO: Error handling
+			this.verifyPageAndExtractIds(DOMObject.parse(html.content))
 			
 			this.loggedIn = true
 			this.lastVisitedPageId = 1
 			this.sessionTimer()
-		} catch(error) {
+		} catch(e) {
 			this.handleLogout()
 			
-			throw error
+			throw e
 		} finally{
 			this.releaseStateLock(stateLock)
 		}
@@ -367,6 +413,7 @@ class Session {
 		}
 		
 		try {
+			// TODO: Error handling
 			await request(`https://${this.provider}/index.php?pageid=9999&id=${this.id}&transid=${this.transId}`, { method: 'GET', headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
 		} finally{
 			this.handleLogout()
@@ -392,36 +439,33 @@ class Session {
 	\****************/
 	
 	public async fetchPage(pageId: Page, changesState = true, additionalQueryParameters: { [key: string]: string | number } = {}) {
-		if(!this.loggedIn) return undefined
+		assert(this.loggedIn, new Exception('fetchPage', 'Not logged in'))
 		
 		let stateLock: symbol | undefined
 		
 		if(changesState) {
 			stateLock = await this.acquireStateLock()
-			assert(!!stateLock, `fetchPage(${pageId}): Failed to acquire state lock`)
+			assert(!!stateLock, new Exception('fetchPage', 'Failed to acquire state lock'))
 		} else {
 			const success = await this.retainStableState()
-			assert(success, `fetchPage(${pageId}): Failed to retain stable state`)
+			assert(success, new Exception('fetchPage', 'Failed to retain stable state'))
 		}
 		
-		let html: string | undefined
+		let html: string
 		
 		try {
+			// TODO: Error handling
 			const response = await request(`https://${this.provider}/index.php?pageid=${pageId}&id=${this.id}&transid=${this.transId}${Object.entries(additionalQueryParameters).map(([ key, value ]) => `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('')}`, { method: 'GET', headers: { 'Cookie': this.cookieString } })
 			
 			html = response.content
 			
-			if(changesState) {
-				this.verifyPageAndExtractIds(DOMObject.parse(html))
-			}
+			if(changesState) this.verifyPageAndExtractIds(DOMObject.parse(html))
 			
 			this.visitedPageIds.add(pageId)
 		} catch(e) {
-			error(`${e}`)
-			
-			html = undefined
-			
 			this.handleLogout()
+			
+			throw e
 		} finally{
 			if(changesState) {
 				if(stateLock) this.releaseStateLock(stateLock)
@@ -440,11 +484,11 @@ class Session {
 
 const Parser = {
 	parseTeachers(content: string) {
-		assertError(!!content, `parseTeachers: !!content (was ${content != undefined ? '\'\'' : undefined})`)
+		assertError(!!content, new ParserException('parseTeachers', `!!content (was ${content != undefined ? '\'\'' : undefined})`))
 		
 		const lines = content.trim().replace(/[\r\n]+/g, '\n').split('\n')
 		
-		assertFatal(lines.length >= 1, `parseTeachers: lines.length >= 1 (was ${lines.length})`)
+		assertFatal(lines.length >= 1, new ParserException('parseTeachers', `lines.length >= 1 (was ${lines.length})`))
 		
 		lines.shift()
 		
@@ -456,11 +500,11 @@ const Parser = {
 			
 			const matches = Array.from(line.matchAll(/"(([^"]|"")*)"/g))
 			
-			assertFatal(matches.length == 4, `parseTeachers: matches.length == 4 (was ${matches.length})`)
+			assertFatal(matches.length == 4, new ParserException('parseTeachers', `matches.length == 4 (was ${matches.length})`))
 			for(let i = 0; i < matches.length; i++) {
-				assertFatal(!!matches[i], `parseTeachers: !!matches[${i}] (was ${undefined})`)
-				assertFatal(matches[i].length >= 2, `parseTeachers: matches[${i}].length >= 2 (was ${matches[i].length})`)
-				assertFatal(typeof matches[i][1] === 'string', `parseTeachers: typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`)
+				assertFatal(!!matches[i], new ParserException('parseTeachers', `!!matches[${i}] (was ${undefined})`))
+				assertFatal(matches[i].length >= 2, new ParserException('parseTeachers', `matches[${i}].length >= 2 (was ${matches[i].length})`))
+				assertFatal(typeof matches[i][1] === 'string', new ParserException('parseTeachers', `typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`))
 			}
 			
 			const teacher: Partial<Teacher> = {}
@@ -475,16 +519,16 @@ const Parser = {
 			teachers.push(teacher as Teacher)
 		}
 		
-		return { teachers } as Partial<User>
+		return { teachers }
 	},
 	
 	parseStudents(content: string) {
-		assertError(!!content, `parseCourseParticipants: !!content (was ${content != undefined ? '\'\'' : undefined})`)
+		assertError(!!content, new ParserException('parseStudents', `!!content (was ${content != undefined ? '\'\'' : undefined})`))
 		
 		const lines = content.trim().replace(/[\r\n]+/g, '\n').split('\n')
 		
-		assertError(!!lines, `parseCourseParticipants: !!lines (was ${lines})`)
-		assertFatal(lines.length > 0, `parseCourseParticipants: lines.length > 0 (was ${lines.length})`)
+		assertError(!!lines, new ParserException('parseStudents', `!!lines (was ${lines})`))
+		assertFatal(lines.length > 0, new ParserException('parseStudents', `lines.length > 0 (was ${lines.length})`))
 		
 		lines.shift()
 		
@@ -496,11 +540,11 @@ const Parser = {
 			
 			const matches = Array.from(line.matchAll(/"(([^"]|"")*)"/g))
 			
-			assertFatal(matches.length == 12, `parseCourseParticipants: matches.length == 12 (was ${matches.length})`)
+			assertFatal(matches.length == 12, new ParserException('parseStudents', `matches.length == 12 (was ${matches.length})`))
 			for(let i = 0; i < matches.length; i++) {
-				assertFatal(!!matches[i], `parseCourseParticipants: !!matches[${i}] (was ${undefined})`)
-				assertFatal(matches[i].length >= 2, `parseCourseParticipants: matches[${i}].length >= 2 (was ${matches[i].length})`)
-				assertFatal(typeof matches[i][1] === 'string', `parseCourseParticipants: typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`)
+				assertFatal(!!matches[i], new ParserException('parseStudents', `!!matches[${i}] (was ${undefined})`))
+				assertFatal(matches[i].length >= 2, new ParserException('parseStudents', `matches[${i}].length >= 2 (was ${matches[i].length})`))
+				assertFatal(typeof matches[i][1] === 'string', new ParserException('parseStudents', `typeof matches[${i}][1] === 'string' (was ${typeof matches[i][1]})`))
 			}
 			
 			const student: Partial<Student> = {}
@@ -528,7 +572,7 @@ const Parser = {
 			student.address = matches[6][1].trim().replace(/""/g, '"')
 			
 			student.zip = parseInt(matches[7][1].trim().replace(/""/g, '"'))
-			assertError(!isNaN(student.zip), `parseCourseParticipants: !isNaN(student.zip) (was ${NaN})`)
+			assertError(!isNaN(student.zip), new ParserException('parseStudents', `!isNaN(student.zip) (was ${NaN})`))
 			
 			student.city = matches[8][1].trim().replace(/""/g, '"')
 			student.phone = matches[9][1].trim().replace(/""/g, '"')
@@ -542,32 +586,29 @@ const Parser = {
 	},
 	
 	parseTransactions(content: string) {
-		assertError(!!content, `parseTransactions: !!content (was ${content != undefined ? '\'\'' : undefined})`)
+		assertError(!!content, new ParserException('parseTransaction', `!!content (was ${content != undefined ? '\'\'' : undefined})`))
 		
 		let dom: DOMObject | undefined
 		
-		try {
-			dom = DOMObject.parse(content)
-		} catch(error) {
-			assertError(false, `parseTransactions: DOMObject.parse(content) errored (threw '${error}')`)
-		}
+		// TODO: Error handling
+		dom = DOMObject.parse(content)
 		
-		assertError(!!dom, `parseTransactions: !!dom (was ${undefined})`)
+		assertError(!!dom, new ParserException('parseTransactions', `!!dom (was ${undefined})`))
 		
 		dom = dom as DOMObject
 		
 		const tables = dom.querySelector('#content-card > table')
 		
-		assertFatal(!!tables, `parseTransactions: !!tables (was ${undefined})`)
-		assertFatal(tables.length == 2, `parseTransactions: tables.length == 2 (was ${tables.length})`)
-		assertFatal(!!tables[1], `parseTransactions: !!tables[1] (was ${undefined})`)
+		assertFatal(!!tables, new ParserException('parseTransactions', `!!tables (was ${undefined})`))
+		assertFatal(tables.length == 2, new ParserException('parseTransactions', `tables.length == 2 (was ${tables.length})`))
+		assertFatal(!!tables[1], new ParserException('parseTransactions', `!!tables[1] (was ${undefined})`))
 		
 		const table = tables[1]
 		
 		const rows = table.querySelector('tr')
 		
-		assertFatal(!!rows, `parseTransactions: !!rows (was ${undefined})`)
-		assertFatal(rows.length >= 2, `parseTransactions: rows.length >= 2 (was ${rows.length})`)
+		assertFatal(!!rows, new ParserException('parseTransactions', `!!rows (was ${undefined})`))
+		assertFatal(rows.length >= 2, new ParserException('parseTransactions', `rows.length >= 2 (was ${rows.length})`))
 		
 		rows.shift()
 		rows.pop()
@@ -584,30 +625,30 @@ const Parser = {
 		for(const row of rows) {
 			const fields = row.querySelector('td')
 			
-			assertFatal(!!fields, `parseTransactions: !!fields (was ${undefined})`)
-			assertFatal(fields.length == 4, `parseTransactions: fields.length == 4 (was ${fields.length})`)
-			for(let i = 0; i < fields.length; i++) assertFatal(!!fields[i], `parseTransactions: !!fields[${i}] (was ${undefined})`)
+			assertFatal(!!fields, new ParserException('parseTransactions', `!!fields (was ${undefined})`))
+			assertFatal(fields.length == 4, new ParserException('parseTransactions', `fields.length == 4 (was ${fields.length})`))
+			for(let i = 0; i < fields.length; i++) assertFatal(!!fields[i], new ParserException('parseTransactions', `!!fields[${i}] (was ${undefined})`))
 			
 			const transaction: Partial<Transaction> = {}
 			
 			transaction.id = generateUUID()
 			
 			const dateHTML = fields[0].innerText()?.trim()
-			assertFatal(!!dateHTML, `parseTransactions: !!dateHTML (was ${dateHTML != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!dateHTML, new ParserException('parseTransactions', `!!dateHTML (was ${dateHTML != undefined ? '\'\'' : undefined})`))
 			transaction.date = parseDate(dateHTML, 'dd.MM.yyyy')
 			
 			transaction.reason = fields[1].innerText()?.trim()
-			assertFatal(!!transaction.reason, `parseTransactions: !!transaction.reason (was ${transaction.reason != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!transaction.reason, new ParserException('parseTransactions', `!!transaction.reason (was ${transaction.reason != undefined ? '\'\'' : undefined})`))
 			
 			const amountElement = fields[2].querySelector('span')
-			assertFatal(!!amountElement, `parseTransactions: !!amountElement (was ${undefined})`)
-			assertFatal(amountElement.length == 1, `parseTransactions: amountElement.length == 4 (was ${amountElement.length})`)
-			assertFatal(!!amountElement[0], `parseTransactions: !!amountElement[0] (was ${undefined})`)
+			assertFatal(!!amountElement, new ParserException('parseTransactions', `!!amountElement (was ${undefined})`))
+			assertFatal(amountElement.length == 1, new ParserException('parseTransactions', `amountElement.length == 4 (was ${amountElement.length})`))
+			assertFatal(!!amountElement[0], new ParserException('parseTransactions', `!!amountElement[0] (was ${undefined})`))
 			
 			const amountHTML = amountElement[0].innerText()?.trim()
-			assertFatal(!!amountHTML, `parseTransactions: !!amountHTML (was ${amountHTML != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!amountHTML, new ParserException('parseTransactions', `!!amountHTML (was ${amountHTML != undefined ? '\'\'' : undefined})`))
 			transaction.amount = parseFloat(amountHTML)
-			assertFatal(!isNaN(transaction.amount), `parseTransactions: !isNaN(transaction.amount) (was ${NaN})`)
+			assertFatal(!isNaN(transaction.amount), new ParserException('parseTransactions', `!isNaN(transaction.amount) (was ${NaN})`))
 			
 			transactions.push(transaction as Transaction)
 		}
@@ -616,37 +657,34 @@ const Parser = {
 	},
 	
 	parseAbsences(content: string) {
-		assertError(!!content, `parseAbsences: !!content (was ${content != undefined ? '\'\'' : undefined})`)
+		assertError(!!content, new ParserException('parseAbsences', `!!content (was ${content != undefined ? '\'\'' : undefined})`))
 		
 		let dom: DOMObject | undefined
 		
-		try {
-			dom = DOMObject.parse(content)
-		} catch(error) {
-			assertError(false, `parseAbsences: DOMObject.parse(content) errored (threw '${error}')`)
-		}
+		// TODO: Error handling
+		dom = DOMObject.parse(content)
 		
-		assertError(!!dom, `parseAbsences: !!dom (was ${undefined})`)
+		assertError(!!dom, new ParserException('parseAbsences', `!!dom (was ${undefined})`))
 		
 		dom = dom as DOMObject
 		
 		const tables = dom.querySelector('#uebersicht_bloecke > page > div > table')
 		
-		assertFatal(!!tables, `parseAbsences: !!tables (was ${undefined})`)
-		assertFatal(tables.length == 1 || tables.length == 2, `parseAbsences: tables.length == 1 || tables.length == 2 (was ${tables.length})`)
-		for(let i = 0; i < tables.length; i++) assertFatal(!!tables[i], `parseAbsences: !!tables[${i}] (was ${undefined})`)
+		assertFatal(!!tables, new ParserException('parseAbsences', `!!tables (was ${undefined})`))
+		assertFatal(tables.length == 1 || tables.length == 2, new ParserException('parseAbsences', `tables.length == 1 || tables.length == 2 (was ${tables.length})`))
+		for(let i = 0; i < tables.length; i++) assertFatal(!!tables[i], new ParserException('parseAbsences', `!!tables[${i}] (was ${undefined})`))
 		
 		const absences: Absence[] = []
 		const absenceReports: AbsenceReport[] = []
 		
 		const absenceRows = tables[0].querySelector('table.mdl-data-table > tbody > tr')
 		
-		assertFatal(!!absenceRows, `parseAbsences: !!absenceRows (was ${undefined})`)
+		assertFatal(!!absenceRows, new ParserException('parseAbsences', `!!absenceRows (was ${undefined})`))
 		
 		if(absenceRows.length > 0 && absenceRows[absenceRows.length - 1].querySelector('button').length > 0) absenceRows.pop()
 		
-		assertFatal(absenceRows.length >= 3, `parseAbsences: absenceRows.length >= 3 (was ${absenceRows.length})`)
-		assertFatal((absenceRows.length - 3) % 2 == 0, `parseAbsences: (absenceRows.length - 3) % 2 == 0 (was ${absenceRows.length})`)
+		assertFatal(absenceRows.length >= 3, new ParserException('parseAbsences', `absenceRows.length >= 3 (was ${absenceRows.length})`))
+		assertFatal((absenceRows.length - 3) % 2 == 0, new ParserException('parseAbsences', `(absenceRows.length - 3) % 2 == 0 (was ${absenceRows.length})`))
 		
 		absenceRows.shift()
 		absenceRows.pop()
@@ -663,41 +701,41 @@ const Parser = {
 			const absenceRow = absenceRows[absenceRowIndex]
 			const absenceFields = absenceRow.querySelector('td')
 			
-			assertFatal(!!absenceFields, `parseAbsences: !!absenceFields (was ${undefined})`)
-			assertFatal(absenceFields.length == 7, `parseAbsences: absenceFields.length == 7 (was ${absenceFields.length})`)
-			for(let i = 0; i < absenceFields.length; i++) assertFatal(!!absenceFields[i], `parseAbsences: !!absenceFields[${i}] (was ${undefined})`)
+			assertFatal(!!absenceFields, new ParserException('parseAbsences', `!!absenceFields (was ${undefined})`))
+			assertFatal(absenceFields.length == 7, new ParserException('parseAbsences', `absenceFields.length == 7 (was ${absenceFields.length})`))
+			for(let i = 0; i < absenceFields.length; i++) assertFatal(!!absenceFields[i], new ParserException('parseAbsences', `!!absenceFields[${i}] (was ${undefined})`))
 			
 			const absence: Partial<Absence> = {}
 			
 			absence.id = generateUUID()
 			
 			const absenceFromDateHTML = absenceFields[0].innerText()?.trim()
-			assertFatal(!!absenceFromDateHTML, `parseAbsences: !!absenceFromDateHTML (was ${absenceFromDateHTML != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!absenceFromDateHTML, new ParserException('parseAbsences', `!!absenceFromDateHTML (was ${absenceFromDateHTML != undefined ? '\'\'' : undefined})`))
 			const absenceToDateHTML = absenceFields[1].innerText()?.trim()
-			assertFatal(!!absenceToDateHTML, `parseAbsences: !!absenceToDateHTML (was ${absenceToDateHTML != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!absenceToDateHTML, new ParserException('parseAbsences', `!!absenceToDateHTML (was ${absenceToDateHTML != undefined ? '\'\'' : undefined})`))
 			
 			absence.startDate = parseDate(absenceFromDateHTML, 'dd.MM.yyyy')
-			assertFatal(!!absence.startDate, `parseAbsences: !!absence.startDate (was ${undefined})`)
+			assertFatal(!!absence.startDate, new ParserException('parseAbsences', `!!absence.startDate (was ${undefined})`))
 			absence.endDate = parseDate(absenceToDateHTML, 'dd.MM.yyyy')
-			assertFatal(!!absence.endDate, `parseAbsences: !!absence.endDate (was ${undefined})`)
+			assertFatal(!!absence.endDate, new ParserException('parseAbsences', `!!absence.endDate (was ${undefined})`))
 			
 			absence.reason = absenceFields[2].innerText()?.trim()
-			assertFatal(absence.reason != undefined, `parseAbsences: absence.reason (was ${undefined})`)
+			assertFatal(absence.reason != undefined, new ParserException('parseAbsences', `absence.reason (was ${undefined})`))
 			
 			absence.additionalInfo = absenceFields[3].innerText()?.trim()
-			assertFatal(absence.additionalInfo != undefined, `parseAbsences: absence.additionalInfo (was ${undefined})`)
+			assertFatal(absence.additionalInfo != undefined, new ParserException('parseAbsences', `absence.additionalInfo (was ${undefined})`))
 			
 			absence.deadline = absenceFields[4].innerText()?.trim()
-			assertFatal(absence.deadline != undefined, `parseAbsences: absence.deadline (was ${undefined})`)
+			assertFatal(absence.deadline != undefined, new ParserException('parseAbsences', `absence.deadline (was ${undefined})`))
 			
 			const excused = absenceFields[5].innerText()?.trim()
-			assertFatal(excused != undefined, `parseAbsences: excused (was ${undefined})`)
+			assertFatal(excused != undefined, new ParserException('parseAbsences', `excused (was ${undefined})`))
 			absence.excused = excused === 'Ja'
 			
 			const lessonCount = absenceFields[6].innerText()?.trim()
-			assertFatal(lessonCount != undefined, `parseAbsences: lessonCount (was ${undefined})`)
+			assertFatal(lessonCount != undefined, new ParserException('parseAbsences', `lessonCount (was ${undefined})`))
 			absence.lessonCount = parseInt(lessonCount)
-			assertFatal(!isNaN(absence.lessonCount), `parseAbsences: !isNaN(absence.lessonCount) (was ${NaN})`)
+			assertFatal(!isNaN(absence.lessonCount), new ParserException('parseAbsences', `!isNaN(absence.lessonCount) (was ${NaN})`))
 			
 			absences.push(absence as Absence)
 			
@@ -707,9 +745,9 @@ const Parser = {
 				
 				const absenceReportRows = reportsTable.querySelector('tr')
 				
-				assertFatal(!!absenceReportRows, `parseAbsences: !!absenceReportRows (was ${undefined})`)
-				assertFatal(absenceReportRows.length >= 2, `parseAbsences: absenceReportRows.length >= 2 (was ${absenceReportRows.length})`)
-				for(let i = 0; i < absenceReportRows.length; i++) assertFatal(!!absenceReportRows[i], `parseAbsences: !!absenceReportRows[${i}] (was ${undefined})`)
+				assertFatal(!!absenceReportRows, new ParserException('parseAbsences', `!!absenceReportRows (was ${undefined})`))
+				assertFatal(absenceReportRows.length >= 2, new ParserException('parseAbsences', `absenceReportRows.length >= 2 (was ${absenceReportRows.length})`))
+				for(let i = 0; i < absenceReportRows.length; i++) assertFatal(!!absenceReportRows[i], new ParserException('parseAbsences', `!!absenceReportRows[${i}] (was ${undefined})`))
 				
 				absenceReportRows.shift()
 				absenceReportRows.shift()
@@ -718,9 +756,9 @@ const Parser = {
 					const absenceReportRow = absenceReportRows[absenceReportRowIndex]
 					const absenceReportFields = absenceReportRow.querySelector('td')
 					
-					assertFatal(!!absenceReportFields, `parseAbsences: !!absenceReportFields (was ${undefined})`)
-					assertFatal(absenceReportFields.length == 4, `parseAbsences: absenceReportFields.length == 7 (was ${absenceReportFields.length})`)
-					for(let i = 0; i < absenceReportFields.length; i++) assertFatal(!!absenceReportFields[i], `parseAbsences: !!absenceReportFields[${i}] (was ${undefined})`)
+					assertFatal(!!absenceReportFields, new ParserException('parseAbsences', `!!absenceReportFields (was ${undefined})`))
+					assertFatal(absenceReportFields.length == 4, new ParserException('parseAbsences', `absenceReportFields.length == 7 (was ${absenceReportFields.length})`))
+					for(let i = 0; i < absenceReportFields.length; i++) assertFatal(!!absenceReportFields[i], new ParserException('parseAbsences', `!!absenceReportFields[${i}] (was ${undefined})`))
 					
 					const absenceReport: Partial<AbsenceReport> = {}
 					
@@ -729,25 +767,25 @@ const Parser = {
 					absenceReport.absenceId = absence.id
 					
 					const absenceReportDateHTML = absenceReportFields[0].innerText()?.trim()
-					assertFatal(!!absenceReportDateHTML, `parseAbsences: !!absenceReportDateHTML (was ${absenceReportDateHTML != undefined ? '\'\'' : undefined})`)
+					assertFatal(!!absenceReportDateHTML, new ParserException('parseAbsences', `!!absenceReportDateHTML (was ${absenceReportDateHTML != undefined ? '\'\'' : undefined})`))
 					
 					const absenceReportTimeHTML = absenceReportFields[1].innerText()?.trim()
-					assertFatal(!!absenceReportTimeHTML, `parseAbsences: !!absenceReportTimeHTML (was ${absenceReportTimeHTML != undefined ? '\'\'' : undefined})`)
+					assertFatal(!!absenceReportTimeHTML, new ParserException('parseAbsences', `!!absenceReportTimeHTML (was ${absenceReportTimeHTML != undefined ? '\'\'' : undefined})`))
 					const [ absenceReportStartTime, absenceReportEndTime ] = absenceReportTimeHTML.split('bis').map(str => str.trim())
-					assertFatal(!!absenceReportStartTime, `parseAbsences: !!absenceReportStartTime (was ${absenceReportStartTime != undefined ? '\'\'' : undefined})`)
-					assertFatal(!!absenceReportEndTime, `parseAbsences: !!absenceReportEndTime (was ${absenceReportEndTime != undefined ? '\'\'' : undefined})`)
+					assertFatal(!!absenceReportStartTime, new ParserException('parseAbsences', `!!absenceReportStartTime (was ${absenceReportStartTime != undefined ? '\'\'' : undefined})`))
+					assertFatal(!!absenceReportEndTime, new ParserException('parseAbsences', `!!absenceReportEndTime (was ${absenceReportEndTime != undefined ? '\'\'' : undefined})`))
 					
 					absenceReport.startDate = parseDate(`${absenceReportDateHTML} ${absenceReportStartTime}`, 'dd.MM.yyyy HH:mm')
-					assertFatal(!!absenceReport.startDate, `parseAbsences: !!absenceReport.startDate (was ${undefined})`)
+					assertFatal(!!absenceReport.startDate, new ParserException('parseAbsences', `!!absenceReport.startDate (was ${undefined})`))
 					
 					absenceReport.endDate = parseDate(`${absenceReportDateHTML} ${absenceReportEndTime}`, 'dd.MM.yyyy HH:mm')
-					assertFatal(!!absenceReport.endDate, `parseAbsences: !!absenceReport.endDate (was ${undefined})`)
+					assertFatal(!!absenceReport.endDate, new ParserException('parseAbsences', `!!absenceReport.endDate (was ${undefined})`))
 					
 					absenceReport.lessonAbbreviation = absenceReportFields[2].innerText()?.trim()
-					assertFatal(absenceReport.lessonAbbreviation != undefined, `parseAbsences: absenceReport.lessonAbbreviation (was ${undefined})`)
+					assertFatal(absenceReport.lessonAbbreviation != undefined, new ParserException('parseAbsences', `absenceReport.lessonAbbreviation (was ${undefined})`))
 					
 					absenceReport.comment = absenceReportFields[3].innerText()?.trim()
-					assertFatal(absenceReport.comment != undefined, `parseAbsences: absenceReport.comment (was ${undefined})`)
+					assertFatal(absenceReport.comment != undefined, new ParserException('parseAbsences', `absenceReport.comment (was ${undefined})`))
 					
 					absenceReports.push(absenceReport as AbsenceReport)
 				}
@@ -756,16 +794,16 @@ const Parser = {
 		
 		const openAbsencesTables = dom.querySelector('#uebersicht_bloecke > page form > table')
 		
-		assertFatal(!!openAbsencesTables, `parseAbsences: !!openAbsencesTables (was ${undefined})`)
-		assertFatal(openAbsencesTables.length == 1, `parseAbsences: openAbsencesTables.length == 1 (was ${openAbsencesTables.length})`)
-		for(let i = 0; i < openAbsencesTables.length; i++) assertFatal(!!openAbsencesTables[i], `parseAbsences: !!openAbsencesTables[${i}] (was ${undefined})`)
+		assertFatal(!!openAbsencesTables, new ParserException('parseAbsences', `!!openAbsencesTables (was ${undefined})`))
+		assertFatal(openAbsencesTables.length == 1, new ParserException('parseAbsences', `openAbsencesTables.length == 1 (was ${openAbsencesTables.length})`))
+		for(let i = 0; i < openAbsencesTables.length; i++) assertFatal(!!openAbsencesTables[i], new ParserException('parseAbsences', `!!openAbsencesTables[${i}] (was ${undefined})`))
 		
 		const openAbsences: OpenAbsence[] = []
 		
 		const openAbsenceRows = openAbsencesTables[0].querySelector('tr')
 		
-		assertFatal(!!openAbsenceRows, `parseAbsences: !!openAbsenceRows (was ${undefined})`)
-		assertFatal(openAbsenceRows.length >= 3, `parseAbsences: openAbsenceRows.length >= 3 (was ${openAbsenceRows.length})`)
+		assertFatal(!!openAbsenceRows, new ParserException('parseAbsences', `!!openAbsenceRows (was ${undefined})`))
+		assertFatal(openAbsenceRows.length >= 3, new ParserException('parseAbsences', `openAbsenceRows.length >= 3 (was ${openAbsenceRows.length})`))
 		
 		openAbsenceRows.shift()
 		openAbsenceRows.pop()
@@ -781,27 +819,27 @@ const Parser = {
 		for(const openAbsenceRow of openAbsenceRows) {
 			const openAbsenceFields = openAbsenceRow.querySelector('td')
 			
-			assertFatal(!!openAbsenceFields, `parseAbsences: !!openAbsenceFields (was ${undefined})`)
-			assertFatal(openAbsenceFields.length == 4, `parseAbsences: openAbsenceFields.length == 4 (was ${openAbsenceFields.length})`)
-			for(let i = 0; i < openAbsenceFields.length; i++) assertFatal(!!openAbsenceFields[i], `parseAbsences: !!openAbsenceFields[${i}] (was ${undefined})`)
+			assertFatal(!!openAbsenceFields, new ParserException('parseAbsences', `!!openAbsenceFields (was ${undefined})`))
+			assertFatal(openAbsenceFields.length == 4, new ParserException('parseAbsences', `openAbsenceFields.length == 4 (was ${openAbsenceFields.length})`))
+			for(let i = 0; i < openAbsenceFields.length; i++) assertFatal(!!openAbsenceFields[i], new ParserException('parseAbsences', `!!openAbsenceFields[${i}] (was ${undefined})`))
 			
 			const openAbsence: Partial<OpenAbsence> = {}
 			
 			openAbsence.id = generateUUID()
 			
 			const openAbsenceDateHTML = openAbsenceFields[0].innerText()?.trim()
-			assertFatal(!!openAbsenceDateHTML, `parseAbsences: !!openAbsenceDateHTML (was ${openAbsenceDateHTML != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!openAbsenceDateHTML, new ParserException('parseAbsences', `!!openAbsenceDateHTML (was ${openAbsenceDateHTML != undefined ? '\'\'' : undefined})`))
 			const openAbsenceTimeHTML = openAbsenceFields[1].innerText()?.trim()
-			assertFatal(!!openAbsenceTimeHTML, `parseAbsences: !!openAbsenceTimeHTML (was ${openAbsenceTimeHTML != undefined ? '\'\'' : undefined})`)
-			assertFatal(Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length == 1, `parseAbsences: Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length == 1 (was ${Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length})`)
+			assertFatal(!!openAbsenceTimeHTML, new ParserException('parseAbsences', `!!openAbsenceTimeHTML (was ${openAbsenceTimeHTML != undefined ? '\'\'' : undefined})`))
+			assertFatal(Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length == 1, new ParserException('parseAbsences', `Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length == 1 (was ${Array.from(openAbsenceTimeHTML.matchAll(/-/g)).length})`))
 			const [ openAbsenceFromTime, openAbsenceToTime ] = openAbsenceTimeHTML.split('-').map(str => str.trim())
 			openAbsence.startDate = parseDate(`${openAbsenceDateHTML} ${openAbsenceFromTime}`, 'dd.MM.yyyy HH:mm')
-			assertFatal(!!openAbsence.startDate, `parseAbsences: !!openAbsence.startDate (was ${undefined})`)
+			assertFatal(!!openAbsence.startDate, new ParserException('parseAbsences', `!!openAbsence.startDate (was ${undefined})`))
 			openAbsence.endDate = parseDate(`${openAbsenceDateHTML} ${openAbsenceToTime}`, 'dd.MM.yyyy HH:mm')
-			assertFatal(!!openAbsence.endDate, `parseAbsences: !!openAbsence.endDate (was ${undefined})`)
+			assertFatal(!!openAbsence.endDate, new ParserException('parseAbsences', `!!openAbsence.endDate (was ${undefined})`))
 			
 			openAbsence.lessonAbbreviation = openAbsenceFields[2].innerText()?.trim()
-			assertFatal(openAbsence.lessonAbbreviation != undefined, `parseAbsences: openAbsence.lessonAbbreviation (was ${undefined})`)
+			assertFatal(openAbsence.lessonAbbreviation != undefined, new ParserException('parseAbsences', `openAbsence.lessonAbbreviation (was ${undefined})`))
 			
 			openAbsences.push(openAbsence as OpenAbsence)
 		}
@@ -811,8 +849,8 @@ const Parser = {
 		if(tables.length == 2) {
 			const lateAbsenceTableRows = tables[1].querySelector('tr')
 			
-			assertFatal(!!lateAbsenceTableRows, `parseAbsences: !!lateAbsenceTableRows (was ${undefined})`)
-			assertFatal(lateAbsenceTableRows.length >= 3, `parseAbsences: lateAbsenceTableRows.length >= 3 (was ${lateAbsenceTableRows.length})`)
+			assertFatal(!!lateAbsenceTableRows, new ParserException('parseAbsences', `!!lateAbsenceTableRows (was ${undefined})`))
+			assertFatal(lateAbsenceTableRows.length >= 3, new ParserException('parseAbsences', `lateAbsenceTableRows.length >= 3 (was ${lateAbsenceTableRows.length})`))
 			
 			lateAbsenceTableRows.shift()
 			lateAbsenceTableRows.pop()
@@ -828,34 +866,34 @@ const Parser = {
 			for(const lateAbsenceRow of lateAbsenceTableRows) {
 				const lateAbsenceFields = lateAbsenceRow.querySelector('td')
 				
-				assertFatal(!!lateAbsenceFields, `parseAbsences: !!lateAbsenceFields (was ${undefined})`)
-				assertFatal(lateAbsenceFields.length == 5, `parseAbsences: lateAbsenceFields.length == 5 (was ${lateAbsenceFields.length})`)
-				for(let i = 0; i < lateAbsenceFields.length; i++) assertFatal(!!lateAbsenceFields[i], `parseAbsences: !!lateAbsenceFields[${i}] (was ${undefined})`)
+				assertFatal(!!lateAbsenceFields, new ParserException('parseAbsences', `!!lateAbsenceFields (was ${undefined})`))
+				assertFatal(lateAbsenceFields.length == 5, new ParserException('parseAbsences', `lateAbsenceFields.length == 5 (was ${lateAbsenceFields.length})`))
+				for(let i = 0; i < lateAbsenceFields.length; i++) assertFatal(!!lateAbsenceFields[i], new ParserException('parseAbsences', `!!lateAbsenceFields[${i}] (was ${undefined})`))
 				
 				const lateAbsence: Partial<LateAbsence> = {}
 				
 				lateAbsence.id = generateUUID()
 				
 				let lateAbsenceDateHTML = lateAbsenceFields[0].innerText()?.replaceAll('(*)', '')?.trim()
-				assertFatal(!!lateAbsenceDateHTML, `parseAbsences: !!lateAbsenceDateHTML (was ${lateAbsenceDateHTML != undefined ? '\'\'' : undefined})`)
+				assertFatal(!!lateAbsenceDateHTML, new ParserException('parseAbsences', `!!lateAbsenceDateHTML (was ${lateAbsenceDateHTML != undefined ? '\'\'' : undefined})`))
 				const commaSeparated = lateAbsenceDateHTML.split(',')
-				assertFatal(commaSeparated.length == 2, `parseAbsences: commaSeparated.length == 2 (was ${commaSeparated.length})`)
+				assertFatal(commaSeparated.length == 2, new ParserException('parseAbsences', `commaSeparated.length == 2 (was ${commaSeparated.length})`))
 				lateAbsenceDateHTML = commaSeparated[1].trim()
 				const lateAbsenceTimeHTML = lateAbsenceFields[1].innerText()?.trim()
-				assertFatal(!!lateAbsenceTimeHTML, `parseAbsences: !!lateAbsenceTimeHTML (was ${lateAbsenceTimeHTML != undefined ? '\'\'' : undefined})`)
+				assertFatal(!!lateAbsenceTimeHTML, new ParserException('parseAbsences', `!!lateAbsenceTimeHTML (was ${lateAbsenceTimeHTML != undefined ? '\'\'' : undefined})`))
 				lateAbsence.date = parseDate(`${lateAbsenceDateHTML} ${lateAbsenceTimeHTML}`, 'dd.MM.yyyy HH:mm')
-				assertFatal(!!lateAbsence.date, `parseAbsences: !!lateAbsence.date (was ${undefined})`)
+				assertFatal(!!lateAbsence.date, new ParserException('parseAbsences', `!!lateAbsence.date (was ${undefined})`))
 				
 				lateAbsence.reason = lateAbsenceFields[2].innerText()?.trim()
-				assertFatal(lateAbsence.reason != undefined, `parseAbsences: lateAbsence.reason != undefined (was ${undefined})`)
+				assertFatal(lateAbsence.reason != undefined, new ParserException('parseAbsences', `lateAbsence.reason != undefined (was ${undefined})`))
 				
 				const timespan = lateAbsenceFields[3].innerText()?.trim()
-				assertFatal(!!timespan, `parseAbsences: !!timespan (was ${timespan != undefined ? '\'\'' : undefined})`)
+				assertFatal(!!timespan, new ParserException('parseAbsences', `!!timespan (was ${timespan != undefined ? '\'\'' : undefined})`))
 				lateAbsence.timespan = parseInt(timespan)
-				assertFatal(!isNaN(lateAbsence.timespan), `parseAbsences: !isNaN(lateAbsence.timespan) (was ${NaN})`)
+				assertFatal(!isNaN(lateAbsence.timespan), new ParserException('parseAbsences', `!isNaN(lateAbsence.timespan) (was ${NaN})`))
 				
 				const excused = lateAbsenceFields[4].innerText()?.trim()
-				assertFatal(!!excused, `parseAbsences: !!excused (was ${excused != undefined ? '\'\'' : undefined})`)
+				assertFatal(!!excused, new ParserException('parseAbsences', `!!excused (was ${excused != undefined ? '\'\'' : undefined})`))
 				lateAbsence.excused = excused === 'Ja'
 				
 				lateAbsences.push(lateAbsence as LateAbsence)
@@ -866,25 +904,22 @@ const Parser = {
 	},
 	
 	parseGrades(content: string) {
-		assertError(!!content, `parseGrades: !!content (was ${content != undefined ? '\'\'' : undefined})`)
+		assertError(!!content, new ParserException('parseGrades', `!!content (was ${content != undefined ? '\'\'' : undefined})`))
 		
 		let dom: DOMObject | undefined
 		
-		try {
-			dom = DOMObject.parse(content)
-		} catch(error) {
-			assertError(false, `parseGrades: DOMObject.parse(content) errored (threw '${error}')`)
-		}
+		// TODO: Error handling
+		dom = DOMObject.parse(content)
 		
-		assertError(!!dom, `parseGrades: !!dom (was ${undefined})`)
+		assertError(!!dom, new ParserException('parseGrades', `!!dom (was ${undefined})`))
 		
 		dom = dom as DOMObject
 		
 		const subjectRows = dom.querySelector('#uebersicht_bloecke > page > div > table > tbody > tr')
 		
-		assertFatal(!!subjectRows, `parseGrades: !!subjectRows (was ${undefined})`)
-		assertFatal(subjectRows.length >= 1, `parseGrades: subjectRows.length >= 1 (was ${subjectRows.length})`)
-		for(let i = 0; i < subjectRows.length; i++) assertFatal(!!subjectRows[i], `parseGrades: !!subjectRows[${i}] (was ${undefined})`)
+		assertFatal(!!subjectRows, new ParserException('parseGrades', `!!subjectRows (was ${undefined})`))
+		assertFatal(subjectRows.length >= 1, new ParserException('parseGrades', `subjectRows.length >= 1 (was ${subjectRows.length})`))
+		for(let i = 0; i < subjectRows.length; i++) assertFatal(!!subjectRows[i], new ParserException('parseGrades', `!!subjectRows[${i}] (was ${undefined})`))
 		
 		subjectRows.shift()
 		
@@ -895,29 +930,29 @@ const Parser = {
 			const subjectRow = subjectRows[subjectRowIndex]
 			const subjectFields = subjectRow.querySelector('td')
 			
-			assertFatal(!!subjectFields, `parseGrades: !!subjectFields (was ${undefined})`)
-			assertFatal(subjectFields.length == 5, `parseGrades: subjectFields.length == 5 (was ${subjectFields.length})`)
-			for(let i = 0; i < subjectFields.length; i++) assertFatal(!!subjectFields[i], `parseGrades: !!subjectFields[${i}] (was ${undefined})`)
+			assertFatal(!!subjectFields, new ParserException('parseGrades', `!!subjectFields (was ${undefined})`))
+			assertFatal(subjectFields.length == 5, new ParserException('parseGrades', `subjectFields.length == 5 (was ${subjectFields.length})`))
+			for(let i = 0; i < subjectFields.length; i++) assertFatal(!!subjectFields[i], new ParserException('parseGrades', `!!subjectFields[${i}] (was ${undefined})`))
 			
 			const subject: Partial<Subject> = {}
 			
 			subject.id = generateUUID()
 			
 			const b = subjectFields[0].querySelector('b')
-			assertFatal(!!b, `parseGrades: !!b (was ${undefined})`)
-			assertFatal(b.length == 1, `parseGrades: b.length == 1 (was ${b.length})`)
-			for(let i = 0; i < b.length; i++) assertFatal(!!b[i], `parseGrades: !!b[${i}] (was ${undefined})`)
+			assertFatal(!!b, new ParserException('parseGrades', `!!b (was ${undefined})`))
+			assertFatal(b.length == 1, new ParserException('parseGrades', `b.length == 1 (was ${b.length})`))
+			for(let i = 0; i < b.length; i++) assertFatal(!!b[i], new ParserException('parseGrades', `!!b[${i}] (was ${undefined})`))
 			
 			subject.abbreviation = b[0].innerText()?.trim()
-			assertFatal(subject.abbreviation != undefined, `parseGrades: subject.abbreviation != undefined (was ${undefined})`)
+			assertFatal(subject.abbreviation != undefined, new ParserException('parseGrades', `subject.abbreviation != undefined (was ${undefined})`))
 			
 			subject.name = subjectFields[0].innerText()?.trim()
-			assertFatal(subject.name != undefined, `parseGrades: subject.name != undefined (was ${undefined})`)
+			assertFatal(subject.name != undefined, new ParserException('parseGrades', `subject.name != undefined (was ${undefined})`))
 			
 			subject.hiddenGrades = subjectFields[1].innerText()?.includes('*') ?? false
 			
 			const a = subjectFields[3].querySelector('a')
-			assertFatal(!!a, `parseGrades: !!a (was ${undefined})`)
+			assertFatal(!!a, new ParserException('parseGrades', `!!a (was ${undefined})`))
 			
 			subject.gradesConfirmed = a.length <= 0
 			
@@ -931,14 +966,14 @@ const Parser = {
 				if((gradesRow = subjectRows[subjectRowIndex].querySelector('table')) && gradesRow.length == 1 && gradesRow[0]) {
 					const rows = gradesRow[0].querySelector('tr')
 					
-					assertFatal(!!rows, `parseGrades: !!rows (was ${undefined})`)
+					assertFatal(!!rows, new ParserException('parseGrades', `!!rows (was ${undefined})`))
 					gradeRows.push(...rows)
 				}
 			}
 			
 			if(gradeRows.length > 0) {
-				assertFatal(gradeRows.length >= 2, `parseGrades: gradeRows.length >= 2 (was ${gradeRows.length})`)
-				for(let i = 0; i < gradeRows.length; i++) assertFatal(!!gradeRows[i], `parseGrades: !!gradeRows[${i}] (was ${undefined})`)
+				assertFatal(gradeRows.length >= 2, new ParserException('parseGrades', `gradeRows.length >= 2 (was ${gradeRows.length})`))
+				for(let i = 0; i < gradeRows.length; i++) assertFatal(!!gradeRows[i], new ParserException('parseGrades', `!!gradeRows[${i}] (was ${undefined})`))
 				
 				gradeRows.shift()
 				
@@ -949,10 +984,10 @@ const Parser = {
 					const gradeRow = gradeRows[gradeRowIndex]
 					const gradeFields = gradeRow.querySelector('td')
 					
-					assertFatal(!!gradeFields, `parseGrades: !!gradeFields (was ${undefined})`)
+					assertFatal(!!gradeFields, new ParserException('parseGrades', `!!gradeFields (was ${undefined})`))
 					if(gradeFields.length == 2 && gradeRowIndex + 1 == gradeRows.length) continue
-					assertFatal(gradeFields.length == 4, `parseGrades: gradeFields.length == 4 (was ${gradeFields.length})`)
-					for(let i = 0; i < gradeFields.length; i++) assertFatal(!!gradeFields[i], `parseGrades: !!gradeFields[${i}] (was ${undefined})`)
+					assertFatal(gradeFields.length == 4, new ParserException('parseGrades', `gradeFields.length == 4 (was ${gradeFields.length})`))
+					for(let i = 0; i < gradeFields.length; i++) assertFatal(!!gradeFields[i], new ParserException('parseGrades', `!!gradeFields[${i}] (was ${undefined})`))
 					
 					const grade: Partial<Grade> = {}
 					
@@ -963,11 +998,11 @@ const Parser = {
 					const gradeDateHTML = gradeFields[0].innerText()?.trim()
 					if(gradeDateHTML) {
 						grade.date = parseDate(`${gradeDateHTML}`, 'dd.MM.yyyy')
-						assertWarn(!!grade.date, `parseGrades: !!grade.date (was ${undefined})`)
+						assertWarn(!!grade.date, new ParserException('parseGrades', `!!grade.date (was ${undefined})`))
 					}
 					
 					grade.topic = gradeFields[1].innerText()?.trim()
-					assertFatal(grade.topic != undefined, `parseGrades: grade.topic (was ${undefined})`)
+					assertFatal(grade.topic != undefined, new ParserException('parseGrades', `grade.topic (was ${undefined})`))
 					
 					const gradeHTML = gradeFields[2].innerText()?.trim()
 					grade.grade = gradeHTML ? parseFloat(gradeHTML) : undefined
@@ -977,7 +1012,7 @@ const Parser = {
 					if(detailsDiv && detailsDiv.length == 1 && detailsDiv[0]) grade.details = detailsDiv[0].innerText()?.trim()
 					
 					grade.weight = parseFloat(gradeFields[3].innerText()?.trim())
-					assertFatal(!isNaN(grade.weight), `parseGrades: !isNaN(grade.weight) (was ${NaN})`)
+					assertFatal(!isNaN(grade.weight), new ParserException('parseGrades', `!isNaN(grade.weight) (was ${NaN})`))
 					
 					if(grade.grade) {
 						const weight = grade.weight ?? 1
@@ -1002,6 +1037,8 @@ const Parser = {
 | Linker |
 \********/
 
+// TODO: Error handling + recovery
+
 const link = (user: Partial<User>) => {
 	const teacherTable: { [ key: string ]: Teacher } = {}
 	const subjectTable: { [ key: string ]: Subject } = {}
@@ -1018,12 +1055,12 @@ const link = (user: Partial<User>) => {
 			subjectTable[subject.abbreviation] = subject
 			subjectIdTable.set(subject.id, subject)
 		
-			assertFatal(!!subject.abbreviation, `link (subjects): !!subject.abbreviation (was ${subject.abbreviation != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!subject.abbreviation, new LinkerException('Subjects', `!!subject.abbreviation (was ${subject.abbreviation != undefined ? '\'\'' : undefined})`))
 			const [ , , teacherAbbreviation ] = subject.abbreviation.split('-')
-			assertFatal(!!teacherAbbreviation, `link (subjects): !!teacherAbbreviation (was ${teacherAbbreviation != undefined ? '\'\'' : undefined})`)
+			assertFatal(!!teacherAbbreviation, new LinkerException('Subjects', `!!teacherAbbreviation (was ${teacherAbbreviation != undefined ? '\'\'' : undefined})`))
 		
 			const teacher = teacherTable[teacherAbbreviation]
-			assertInfo(!!teacher, `link (subjects): !!teacher (was ${undefined})`)
+			assertInfo(!!teacher, new LinkerException('Subjects', `!!teacher (was ${undefined})`))
 			if(!teacher) continue
 		
 			subject.teacherId = teacher.id
@@ -1035,7 +1072,7 @@ const link = (user: Partial<User>) => {
 	for(const grade of user.grades ?? []) {
 		try {
 			const subject = subjectIdTable.get(grade.subjectId)
-			assertFatal(!!subject, `link (grades): !!subject (was ${undefined})`)
+			assertFatal(!!subject, new LinkerException('Grades', `!!subject (was ${undefined})`))
 		
 			if(!subject) continue
 		
@@ -1047,7 +1084,7 @@ const link = (user: Partial<User>) => {
 	for(const openAbsence of user.openAbsences ?? []) {
 		try {
 			const subject = subjectTable[openAbsence.lessonAbbreviation]
-			assertInfo(!!subject, `link (openAbsences): !!subject (was ${undefined})`)
+			assertInfo(!!subject, new LinkerException('OpenAbsences', `!!subject (was ${undefined})`))
 			if(!subject) continue
 		
 			openAbsence.subjectId = subject.id
@@ -1061,7 +1098,7 @@ const link = (user: Partial<User>) => {
 	for(const absenceReport of user.absenceReports ?? []) {
 		try {
 			const subject = subjectTable[absenceReport.lessonAbbreviation]
-			assertInfo(!!subject, `link (absenceReports): !!subject (was ${undefined})`)
+			assertInfo(!!subject, new LinkerException('AbsenceReports', `!!subject (was ${undefined})`))
 			if(subject) {
 				if(!subject.absenceReportIds) subject.absenceReportIds = []
 				subject.absenceReportIds.push(absenceReport.id)
@@ -1069,7 +1106,7 @@ const link = (user: Partial<User>) => {
 			}
 		
 			const absence = absenceIdTable.get(absenceReport.absenceId)
-			assertFatal(!!absence, `link (absenceReports): !!absence (was ${undefined})`)
+			assertFatal(!!absence, new LinkerException('AbsenceReports', `!!absence (was ${undefined})`))
 			if(!absence) continue
 		
 			if(!absence.absenceReportIds) absence.absenceReportIds = []
@@ -1155,9 +1192,9 @@ var Fetcher = {
 	},
 } as const
 
-/*********\
-| Testing |
-\*********/
+/************************\
+| Testing (TODO: Remove) |
+\************************/
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function run(provider: string, username: string, password: string) {
