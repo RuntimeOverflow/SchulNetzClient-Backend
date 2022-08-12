@@ -24,6 +24,7 @@ const config = {
 		top_retain: ['Session', 'diff', 'Fetcher', 'ObjectType', 'Page'],
 	},
 	// TODO
+	mangle: false,
 	/*mangle: {
 		eval: true,
 		reserved: ['Session', 'diff', 'Fetcher', 'ObjectType', 'Page'],
