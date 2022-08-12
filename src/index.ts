@@ -537,7 +537,9 @@ class GradesParserResult extends ParserResult {
 | Parsers |
 \*********/
 
-const Parser = (globalThis as { Parser?: unknown })['Parser'] = {
+// TODO: Persist Parser object without declaring it var, maybe using globalThis
+// eslint-disable-next-line no-var
+var Parser = {
 	parseTeachers(content: string): TeachersParserResult {
 		const result = new TeachersParserResult()
 		
