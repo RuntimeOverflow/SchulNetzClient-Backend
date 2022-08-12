@@ -1,30 +1,45 @@
 #!/usr/bin/env node
+/* eslint-disable camelcase */
 
 import { minify } from 'terser'
 
 const config = {
 	compress: {
-		'dead_code': true,
-		'drop_console': true,
-		'drop_debugger': true,
-		'keep_classnames': false,
-		'keep_fargs': false,
-		'keep_fnames': false,
-		'keep_infinity': false,
+		drop_console: true,
+		keep_fargs: false,
+		
+		arguments: true,
+		booleans_as_integers: true,
+		passes: 5,
+		unsafe: true,
+		unsafe_arrows: true,
+		unsafe_comps: true,
+		unsafe_Function: true,
+		unsafe_math: true,
+		unsafe_symbols: true,
+		unsafe_methods: true,
+		unsafe_proto: true,
+		unsafe_regexp: true,
+		unsafe_undefined: true,
+		top_retain: ['Session', 'diff', 'Fetcher', 'ObjectType', 'Page'],
 	},
-	mangle: {
-		eval: false,
-		'keep_classnames': false,
-		'keep_fnames': false,
-		toplevel: true,
-		safari10: false,
-		reserved: ['Session', 'Fetcher', 'run'], //TODO: Remove 'run' in production
-	},
-	module: false,
-	sourceMap: false,
-	output: {
+	// TODO
+	/*mangle: {
+		eval: true,
+		reserved: ['Session', 'diff', 'Fetcher', 'ObjectType', 'Page'],
+		properties: {
+			reserved: [
+				'type', 'func', 'message', 'level', 'url', 'errorCode', // Exceptions
+				'fetchAbsences', 'fetchGrades', 'fetchStudents', 'fetchTeachers', 'fetchTransactions', // Fetchers (TODO: Remove)
+				'TEACHER', 'STUDENT', 'TRANSACTION', 'ABSENCE', 'ABSENCE_REPORT', 'OPEN_ABSENCE', 'LATE_ABSENCE', 'SUBJECT', 'GRADE', // ObjectTypes
+			]
+		}
+	},*/
+	toplevel: true,
+	format: {
 		comments: false,
 	},
+	ecma: 9,
 }
 
 let stdin = process.openStdin()

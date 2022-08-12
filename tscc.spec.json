@@ -1,0 +1,13 @@
+{
+	"modules": {
+		"index": {
+			"entry": "src/index.ts",
+			"dependencies": [ "env" ]
+		},
+		"env": "src/env.ts"
+	},
+	"external": {
+		"env": "Environment"
+	},
+	"prefix": "dist/"
+}
