@@ -537,7 +537,7 @@ class GradesParserResult extends ParserResult {
 | Parsers |
 \*********/
 
-const Parser = {
+const Parser = (globalThis as { Parser?: unknown })['Parser'] = {
 	parseTeachers(content: string): TeachersParserResult {
 		const result = new TeachersParserResult()
 		
@@ -1162,7 +1162,7 @@ class LinkResult extends User {
 	exceptions: Exception[] = []
 }
 
-const link = (user: Partial<User>) => {
+function link(user: Partial<User>) {
 	const result = new LinkResult()
 	
 	const teacherTable: { [ key: string ]: Teacher } = {}
@@ -1342,7 +1342,7 @@ class DiffingResult<T> {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const diff = <T>(initial: T | T[], updated: T | T[]) => {
+function diff<T>(initial: T | T[], updated: T | T[]) {
 	const result = new DiffingResult<T>()
 	
 	const firstArray = Array.isArray(initial) ? [...initial] : [initial]
