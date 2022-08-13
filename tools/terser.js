@@ -21,7 +21,7 @@ const config = {
 		unsafe_proto: true,
 		unsafe_regexp: true,
 		unsafe_undefined: true,
-		top_retain: ['Session', 'diff', 'Fetcher', 'ObjectType', 'Page'],
+		top_retain: ['Session', 'Parser', 'diff', 'link', 'ObjectType', 'Page'],
 	},
 	// TODO
 	mangle: false,
@@ -31,7 +31,6 @@ const config = {
 		properties: {
 			reserved: [
 				'type', 'func', 'message', 'level', 'url', 'errorCode', // Exceptions
-				'fetchAbsences', 'fetchGrades', 'fetchStudents', 'fetchTeachers', 'fetchTransactions', // Fetchers (TODO: Remove)
 				'TEACHER', 'STUDENT', 'TRANSACTION', 'ABSENCE', 'ABSENCE_REPORT', 'OPEN_ABSENCE', 'LATE_ABSENCE', 'SUBJECT', 'GRADE', // ObjectTypes
 			]
 		}

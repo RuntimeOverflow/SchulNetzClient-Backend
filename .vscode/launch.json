@@ -5,8 +5,9 @@
 			"name": "Debug",
 			"type": "node",
 			"request": "launch",
-			"runtimeExecutable": "npx",
-			"args": ["ts-node", "."],
+			"preLaunchTask": "Compile",
+			"runtimeExecutable": "node",
+			"args": ["."],
 			"cwd": "${workspaceRoot}",
 			"internalConsoleOptions": "openOnSessionStart",
 			"skipFiles": ["<node_internals>/**", "node_modules/**"]

@@ -130,6 +130,7 @@ class User {
 | Session |
 \*********/
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class Session {
 	/**************\
 	| Account Data |
@@ -538,7 +539,7 @@ class GradesParserResult extends ParserResult {
 \*********/
 
 // TODO: Persist Parser object without declaring it var, maybe using globalThis
-// eslint-disable-next-line no-var
+// eslint-disable-next-line no-var, @typescript-eslint/no-unused-vars
 var Parser = {
 	parseTeachers(content: string): TeachersParserResult {
 		const result = new TeachersParserResult()
@@ -1164,6 +1165,7 @@ class LinkResult extends User {
 	exceptions: Exception[] = []
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function link(user: Partial<User>) {
 	const result = new LinkResult()
 	
@@ -1340,6 +1342,7 @@ const equal = (first: unknown, second: unknown) => {
 class DiffingResult<T> {
 	added: T[] = []
 	modified: [T, T][] = []
+	unchanged: [T, T][] = []
 	removed: T[] = []
 }
 
@@ -1355,7 +1358,7 @@ function diff<T>(initial: T | T[], updated: T | T[]) {
 			if(same(firstArray[firstIndex], secondArray[secondIndex])) {
 				if(!equal(firstArray[firstIndex], secondArray[secondIndex])) {
 					result.modified.push([firstArray[firstIndex], secondArray[secondIndex]])
-				}
+				} else result.unchanged.push([firstArray[firstIndex], secondArray[secondIndex]])
 				
 				firstArray.splice(firstIndex, 1)
 				secondArray.splice(secondIndex, 1)
@@ -1370,95 +1373,6 @@ function diff<T>(initial: T | T[], updated: T | T[]) {
 	result.added = secondArray
 	
 	return result
-}
-
-/**********\
-| Fetchers |
-\**********/
-
-const Fetcher = {
-	fetchAbsences: async (session: Session, user?: User) => {
-		const data = await session.fetchPage(Page.ABSENCES, true, { action: 'toggle_abs_showall' })
-		if(!data) return undefined
-		
-		const parsed = Parser.parseAbsences(data)
-		
-		if(user) link({ ...user, ...parsed })
-		
-		return parsed
-	},
-	
-	fetchGrades: async (session: Session, user?: User) => {
-		const data = await session.fetchPage(Page.GRADES, true)
-		if(!data) return undefined
-		
-		const parsed = Parser.parseGrades(data)
-		
-		if(user) link({ ...user, ...parsed })
-		
-		return parsed
-	},
-	
-	fetchStudents: async (session: Session, user?: User) => {
-		await session.fetchPage(Page.STUDENTS, true)
-		
-		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Kursliste', 'export_all': 1 })
-		if(!data) return undefined
-		
-		const parsed = Parser.parseStudents(data)
-		
-		if(user) link({ ...user, ...parsed })
-		
-		return parsed
-	},
-	
-	fetchTeachers: async (session: Session, user?: User) => {
-		await session.fetchPage(Page.TEACHERS, true)
-		
-		const data = await session.fetchPage(Page.DOCUMENT_DOWNLOAD, false, { tblName: 'Lehrerliste', 'export_all': 1 })
-		if(!data) return undefined
-		
-		const parsed = Parser.parseTeachers(data)
-		
-		if(user) link({ ...user, ...parsed })
-		
-		return parsed
-	},
-	
-	fetchTransactions: async (session: Session, user?: User) => {
-		const data = await session.fetchPage(Page.TRANSACTIONS, true)
-		if(!data) return undefined
-		
-		const parsed = Parser.parseTransactions(data)
-		
-		if(user) link({ ...user, ...parsed })
-		
-		return parsed
-	},
-} as const
-
-/************************\
-| Testing (TODO: Remove) |
-\************************/
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function run(provider: string, username: string, password: string) {
-	let user = {} as User
-	
-	const session = new Session(provider, username, password)
-	await session.login()
-	
-	user = { ...user, ...await Fetcher.fetchAbsences(session, user) }
-	user = { ...user, ...await Fetcher.fetchGrades(session, user) }
-	user = { ...user, ...await Fetcher.fetchStudents(session, user) }
-	user = { ...user, ...await Fetcher.fetchTeachers(session, user) }
-	user = { ...user, ...await Fetcher.fetchTransactions(session, user) }
-	
-	await session.logout()
-	
-	link(user)
-	
-	return user
 }
 
 //Confirm Grade (index starts with 0): https://ksw.nesa-sg.ch/index.php?pageid=21311&action=nvw_bestaetigen&id=66fb5304d45d7068&transid=e9a99d&listindex=1
