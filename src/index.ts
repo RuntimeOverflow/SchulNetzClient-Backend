@@ -141,6 +141,10 @@ class Session {
 	private password: string
 	
 	public constructor(provider: string, username: string, password: string) {
+		if(!provider.startsWith('http://') && !provider.startsWith('https://')) provider = 'https://' + provider
+		
+		while(provider.endsWith('/')) provider = provider.substring(0, provider.length - 1)
+		
 		this.provider = provider
 		this.username = username
 		this.password = password
@@ -153,21 +157,16 @@ class Session {
 	private id?: string
 	private transId?: string
 	private lastVisitedPageId?: number
-	private visitedPageIds = new Set<Page>()
 	
 	private verifyPageAndExtractIds(dom: DOMObject) {
 		const links = dom.querySelector('#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a')
 		assert(links.length == 1, new ParserException('verifyPageAndExtractIds', 'dom.querySelector(\'#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a\').length != 1'))
 		
-		const { id, transid } = extractQueryParameters(links[0].getAttribute('href'), 'https://' + this.provider)
+		const { id, transid } = extractQueryParameters(links[0].getAttribute('href'), this.provider)
 		assert(!!id, new ParserException('verifyPageAndExtractIds', `id == null || id == '' (was ${id != undefined ? '\'\'' : undefined})`))
 		assert(!!transid, new ParserException('verifyPageAndExtractIds', `transid == null || transid == '' (was ${transid != undefined ? '\'\'' : undefined})`))
 		this.id = id as string
 		this.transId = transid as string
-	}
-	
-	public hasVisitedPage(page: Page) {
-		return this.visitedPageIds.has(page)
 	}
 	
 	/****************\
@@ -341,7 +340,7 @@ class Session {
 		if(!this.loggedIn) return false
 		
 		try {
-			const response = await request(`https://${this.provider}/xajax_js.php?pageid=${this.lastVisitedPageId}&id=${this.id}&transid=${this.transId}`, { method: 'POST', body: 'xajax=reset_timeout', headers: { 'Cookie': this.cookieString } })
+			const response = await request(`${this.provider}/xajax_js.php?pageid=${this.lastVisitedPageId}&id=${this.id}&transid=${this.transId}`, { method: 'POST', body: 'xajax=reset_timeout', headers: { 'Cookie': this.cookieString } })
 			
 			this.updateCookies(response)
 		} catch(e) {
@@ -392,7 +391,7 @@ class Session {
 			}
 			
 			// TODO: Error handling
-			let html = await request(`https://${this.provider}/loginto.php`)
+			let html = await request(`${this.provider}/loginto.php`)
 			this.updateCookies(html)
 			
 			// TODO: Error handling
@@ -405,7 +404,7 @@ class Session {
 			assert(!!loginHash, new ParserException('login', `loginHash == null || loginHash == '' ${loginHash != undefined ? '\'\'' : undefined}`))
 			
 			// TODO: Error handling
-			html = await request(`https://${this.provider}/index.php`, { method: 'POST', body: `login=${encodeURIComponent(this.username)}&passwort=${encodeURIComponent(this.password)}&loginhash=${encodeURIComponent(loginHash)}`, headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
+			html = await request(`${this.provider}/index.php`, { method: 'POST', body: `login=${encodeURIComponent(this.username)}&passwort=${encodeURIComponent(this.password)}&loginhash=${encodeURIComponent(loginHash)}`, headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
 			this.updateCookies(html)
 			
 			// TODO: Error handling
@@ -438,7 +437,7 @@ class Session {
 		
 		try {
 			// TODO: Error handling
-			await request(`https://${this.provider}/index.php?pageid=9999&id=${this.id}&transid=${this.transId}`, { method: 'GET', headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
+			await request(`${this.provider}/index.php?pageid=9999&id=${this.id}&transid=${this.transId}`, { method: 'GET', headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
 		} finally{
 			this.handleLogout()
 			this.releaseStateLock(stateLock)
@@ -449,7 +448,6 @@ class Session {
 		this.id = undefined
 		this.transId = undefined
 		this.lastVisitedPageId = undefined
-		this.visitedPageIds.clear()
 		
 		this.cookies = {}
 		
@@ -479,13 +477,11 @@ class Session {
 		
 		try {
 			// TODO: Error handling
-			const response = await request(`https://${this.provider}/index.php?pageid=${pageId}&id=${this.id}&transid=${this.transId}${Object.entries(additionalQueryParameters).map(([ key, value ]) => `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('')}`, { method: 'GET', headers: { 'Cookie': this.cookieString } })
+			const response = await request(`${this.provider}/index.php?pageid=${pageId}&id=${this.id}&transid=${this.transId}${Object.entries(additionalQueryParameters).map(([ key, value ]) => `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('')}`, { method: 'GET', headers: { 'Cookie': this.cookieString } })
 			
 			html = response.content
 			
 			if(changesState) this.verifyPageAndExtractIds(DOMObject.parse(html))
-			
-			this.visitedPageIds.add(pageId)
 		} catch(e) {
 			this.handleLogout()
 			
