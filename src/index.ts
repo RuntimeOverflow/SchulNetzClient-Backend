@@ -407,7 +407,7 @@ class Session {
 			// TODO: Error handling
 			html = await request(`${this.provider}/index.php`, { method: 'POST', body: `login=${encodeURIComponent(this.username)}&passwort=${encodeURIComponent(this.password)}&loginhash=${encodeURIComponent(loginHash)}`, headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
 			
-			if(html.status != 400) {
+			if(html.status != 200) {
 				if(html.status == 302 && html.headers['location']) {
 					const code = parseInt(extractQueryParameters(html.headers['location'])['mode'])
 					
