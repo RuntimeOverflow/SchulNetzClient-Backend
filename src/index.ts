@@ -1,4 +1,4 @@
-import { Absence, AbsenceReport, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, info, LateAbsence, OpenAbsence, parseDate, request, Response, Student, Subject, Teacher, Transaction, UniqueId, wait, warn } from './env.js'
+import { Absence, AbsenceReport, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, info, LateAbsence, OpenAbsence, parseDate, request, Response, Student, Subject, Teacher, Transaction, wait, warn } from './env.js'
 
 // TODO: Error recovery especially for parsers
 // TODO: tscc?
@@ -36,6 +36,7 @@ class LinkerException extends Exception {
 	protected type = 'LinkerException'
 }
 
+// TODO
 /*class NetworkException extends Exception {
 	protected type = 'NetworkException'
 	
@@ -46,19 +47,19 @@ class LinkerException extends Exception {
 		
 		this.url = url
 	}
-}
+}*/
 
 class SchulNetzException extends Exception {
 	protected type = 'SchulNetzException'
 	
-	private errorCode: number
+	private errorCode?: number
 	
-	constructor(func: string, errorCode: number, message: string) {
+	constructor(func: string, message: string, errorCode?: number) {
 		super(func, message)
 		
 		this.errorCode = errorCode
 	}
-}*/
+}
 
 class JavaScriptException extends Exception {
 	protected type = 'JavaScriptException'
@@ -377,8 +378,8 @@ class Session {
 	| Session Lifecycle |
 	\*******************/
 	
-	public async login() {
-		if(this.loggedIn) return
+	public async login(): Promise<Exception | null> {
+		if(this.loggedIn) return null
 		
 		let stateLock: symbol | undefined = await this.acquireStateLockWithPriority()
 		assert(!!stateLock, new Exception('login', 'Failed to acquire state lock'))
@@ -387,7 +388,7 @@ class Session {
 		try {
 			if(this.loggedIn) {
 				this.releaseStateLock(stateLock)
-				return
+				return null
 			}
 			
 			// TODO: Error handling
@@ -405,6 +406,17 @@ class Session {
 			
 			// TODO: Error handling
 			html = await request(`${this.provider}/index.php`, { method: 'POST', body: `login=${encodeURIComponent(this.username)}&passwort=${encodeURIComponent(this.password)}&loginhash=${encodeURIComponent(loginHash)}`, headers: { 'Cookie': this.cookieString }, ignoreStatusCode: true })
+			
+			if(html.status != 400) {
+				if(html.status == 302 && html.headers['location']) {
+					const code = parseInt(extractQueryParameters(html.headers['location'])['mode'])
+					
+					if(!isNaN(code)) return new SchulNetzException('login', 'login failed', code)
+				}
+				
+				return new SchulNetzException('login', `login failed (HTTP ${html.status})`)
+			}
+			
 			this.updateCookies(html)
 			
 			// TODO: Error handling
@@ -420,6 +432,8 @@ class Session {
 		} finally{
 			this.releaseStateLock(stateLock)
 		}
+		
+		return null
 	}
 	
 	public async logout() {
@@ -1168,8 +1182,8 @@ function link(user: Partial<User>) {
 	const teacherTable: { [ key: string ]: Teacher } = {}
 	const subjectTable: { [ key: string ]: Subject } = {}
 	
-	const subjectIdTable = new Map<UniqueId, Subject>()
-	const absenceIdTable = new Map<UniqueId, Absence>()
+	const subjectIdTable = new Map<string, Subject>()
+	const absenceIdTable = new Map<string, Absence>()
 	
 	for(const teacher of user.teachers ?? []) {
 		teacherTable[teacher.abbreviation] = teacher
@@ -1186,29 +1200,10 @@ function link(user: Partial<User>) {
 		
 			const teacher = teacherTable[teacherAbbreviation]
 			assertInfo(!!teacher, new LinkerException('Subjects', `!!teacher (was ${undefined})`))
-			if(!teacher) continue
-		
-			subject.teacherId = teacher.id
-			if(!teacher.subjectIds) teacher.subjectIds = []
-			teacher.subjectIds.push(subject.id)
+			if(teacher) subject.teacherId = teacher.id
 		} catch(exception) {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('link(Subjects)', `${exception}`))
-		}
-	}
-	
-	for(const grade of user.grades ?? []) {
-		try {
-			const subject = subjectIdTable.get(grade.subjectId)
-			assertFatal(!!subject, new LinkerException('Grades', `!!subject (was ${undefined})`))
-		
-			if(!subject) continue
-		
-			if(!subject.gradeIds) subject.gradeIds = []
-			subject.gradeIds.push(grade.id)
-		} catch(exception) {
-			if(exception instanceof Exception) result.exceptions.push(exception)
-			else result.exceptions.push(new JavaScriptException('link(Grades)', `${exception}`))
 		}
 	}
 	
@@ -1216,11 +1211,7 @@ function link(user: Partial<User>) {
 		try {
 			const subject = subjectTable[openAbsence.lessonAbbreviation]
 			assertInfo(!!subject, new LinkerException('OpenAbsences', `!!subject (was ${undefined})`))
-			if(!subject) continue
-		
-			openAbsence.subjectId = subject.id
-			if(!subject.openAbsenceIds) subject.openAbsenceIds = []
-			subject.openAbsenceIds.push(openAbsence.id)
+			if(subject) openAbsence.subjectId = subject.id
 		} catch(exception) {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('link(OpenAbsences)', `${exception}`))
@@ -1233,28 +1224,7 @@ function link(user: Partial<User>) {
 		try {
 			const subject = subjectTable[absenceReport.lessonAbbreviation]
 			assertInfo(!!subject, new LinkerException('AbsenceReports', `!!subject (was ${undefined})`))
-			if(subject) {
-				if(!subject.absenceReportIds) subject.absenceReportIds = []
-				subject.absenceReportIds.push(absenceReport.id)
-				absenceReport.subjectId = subject.id
-			}
-		
-			const absence = absenceIdTable.get(absenceReport.absenceId)
-			assertFatal(!!absence, new LinkerException('AbsenceReports', `!!absence (was ${undefined})`))
-			if(!absence) continue
-		
-			if(!absence.absenceReportIds) absence.absenceReportIds = []
-			absence.absenceReportIds.push(absenceReport.id)
-			absenceReport.absenceId = absence.id
-		
-			if(subject) {
-				if(!absence.subjectIds) absence.subjectIds = []
-				if(!absence.subjectIds.includes(subject.id)) {
-					absence.subjectIds.push(subject.id)
-					if(!subject.absenceIds) subject.absenceIds = []
-					subject.absenceIds.push(absence.id)
-				}
-			}
+			if(subject) absenceReport.subjectId = subject.id
 		} catch(exception) {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('link(AbsenceReports)', `${exception}`))

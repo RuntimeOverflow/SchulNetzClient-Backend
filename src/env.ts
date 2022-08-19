@@ -2,7 +2,7 @@ import axios, { Method } from 'axios'
 import { JSDOM } from 'jsdom'
 import { DateTime } from 'luxon'
 
-export async function request(url: string, options?: { method?: string, headers?: { [key: string]: string }, body?: string, ignoreStatusCode?: boolean }) {
+export async function request(url: string, options?: { method?: string, headers?: { [key: string]: string }, body?: string, ignoreStatusCode?: boolean }): Promise<Response> {
 	const response = await axios({ url: url, method: options?.method as Method, headers: {...options?.headers, 'User-Agent': 'SchulNetz Client Test Environment'}, data: options?.body, maxRedirects: 0, validateStatus: () =>  true })
 	
 	if(!response) {
@@ -22,10 +22,14 @@ export async function request(url: string, options?: { method?: string, headers?
 		throw `${url}: NO DATA`
 	}
 	
-	return new Response(text, response.status, Object.entries(response.headers).reduce((map, [key, value]) => {
-		map[key] = (typeof value === 'string' ? value : value.join(', '))
-		return map
-	}, {} as { [key: string]: string }))
+	return {
+		'content': text,
+		'status': response.status,
+		'headers': Object.entries(response.headers).reduce((map, [key, value]) => {
+			map[key] = (typeof value === 'string' ? value : value.join(', '))
+			return map
+		}, {} as { [key: string]: string })
+	}
 }
 
 export function extractQueryParameters(url: string, base?: string) {
@@ -75,13 +79,10 @@ export function fatal(msg: string) {
 	console.error('[FATAL] ' + msg)
 }
 
-export function parseDate(str: string, format: string): Date | undefined {
-	const date = DateTime.fromFormat(str, format, { locale: 'ch-de' }).toJSDate()
-	return !isNaN(date.getTime()) ? date : undefined
+export function parseDate(str: string, format: string): number | undefined {
+	const date = DateTime.fromFormat(str, format, { locale: 'ch-de' })
+	return date.isValid ? date.toMillis() : undefined
 }
-
-export type UniqueId = unknown
-type DateRepresentation = unknown
 
 let _lastRandomTimestamp = Date.now()
 let _randomCounter = 0
@@ -100,16 +101,10 @@ export function generateUUID() {
 	return hash
 }
 
-export class Response {
+export type Response = {
 	content: string
 	status: number
 	headers: { [ key: string ]: string }
-	
-	constructor(content: string, status: number, headers: { [ key: string ]: string }) {
-		this.content = content
-		this.status = status
-		this.headers = headers
-	}
 }
 
 export class DOMObject {
@@ -144,18 +139,11 @@ export class DOMObject {
 	}
 }
 
-export interface Identifiable {
-	id: UniqueId
-}
-
 export type Absence = {
-	id: UniqueId
+	id: string
 	
-	absenceReportIds?: UniqueId[]
-	subjectIds?: UniqueId[]
-	
-	startDate: DateRepresentation
-	endDate: DateRepresentation
+	startDate: number
+	endDate: number
 	reason: string
 	additionalInfo?: string
 	deadline?: string
@@ -164,44 +152,40 @@ export type Absence = {
 }
 
 export type AbsenceReport = {
-	id: UniqueId
+	id: string
 	
-	absenceId: UniqueId
-	subjectId?: UniqueId
+	absenceId: string
+	subjectId?: string
 	
-	startDate: DateRepresentation
-	endDate: DateRepresentation
+	startDate: number
+	endDate: number
 	lessonAbbreviation: string
 	comment: string
 }
 
 export type OpenAbsence = {
-	id: UniqueId
+	id: string
 	
-	subjectId?: UniqueId
+	subjectId?: string
 	
-	startDate: DateRepresentation
-	endDate: DateRepresentation
+	startDate: number
+	endDate: number
 	lessonAbbreviation: string
 }
 
 export type LateAbsence = {
-	id: UniqueId
+	id: string
 	
-	date: DateRepresentation
+	date: number
 	reason: string
 	timespan: number
 	excused: boolean
 }
 
 export type Subject = {
-	id: UniqueId
+	id: string
 	
-	absenceIds?: UniqueId[]
-	absenceReportIds?: UniqueId[]
-	openAbsenceIds?: UniqueId[]
-	gradeIds?: UniqueId[]
-	teacherId?: UniqueId
+	teacherId?: string
 	
 	abbreviation: string
 	name?: string
@@ -211,11 +195,11 @@ export type Subject = {
 }
 
 export type Grade = {
-	id: UniqueId
+	id: string
 	
-	subjectId: UniqueId
+	subjectId: string
 	
-	date?: DateRepresentation
+	date?: number
 	topic: string
 	grade?: number
 	details?: string
@@ -223,7 +207,7 @@ export type Grade = {
 }
 
 export type Student = {
-	id: UniqueId
+	id: string
 	
 	lastName: string
 	firstName: string
@@ -240,9 +224,7 @@ export type Student = {
 }
 
 export type Teacher = {
-	id : UniqueId
-	
-	subjectIds?: UniqueId[]
+	id : string
 	
 	lastName: string
 	firstName: string
@@ -253,7 +235,7 @@ export type Teacher = {
 export type Transaction = {
 	id: string
 	
-	date: DateRepresentation
+	date: number
 	reason: string
 	amount: number
 }
