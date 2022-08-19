@@ -428,7 +428,7 @@ class Session {
 		} catch(e) {
 			this.handleLogout()
 			
-			return new SchulNetzException('login', `login failed (threw ${e})`)
+			return new SchulNetzException('login', `login failed (threw ${JSON.stringify(e)})`)
 		} finally{
 			this.releaseStateLock(stateLock)
 		}
