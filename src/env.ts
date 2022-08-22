@@ -115,6 +115,7 @@ export class DOMObject {
 	}
 	
 	public static parse(html: string) {
+		DOMParser
 		const obj = (new JSDOM(html)).window.document.documentElement
 		return new DOMObject(obj)
 	}
@@ -238,4 +239,14 @@ export type Transaction = {
 	date: number
 	reason: string
 	amount: number
+}
+
+export type Lesson = {
+	startDate: number
+	endDate: number
+	text: string
+	comment?: string
+	subjectAbbreviation?: string
+	room?: string
+	color: string
 }

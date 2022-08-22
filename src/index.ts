@@ -1,4 +1,4 @@
-import { Absence, AbsenceReport, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, info, LateAbsence, OpenAbsence, parseDate, request, Response, Student, Subject, Teacher, Transaction, wait, warn } from './env.js'
+import { Absence, AbsenceReport, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, info, LateAbsence, Lesson, OpenAbsence, parseDate, request, Response, Student, Subject, Teacher, Transaction, wait, warn } from './env.js'
 
 // TODO: Error recovery especially for parsers
 // TODO: tscc?
@@ -113,6 +113,7 @@ enum Page {
 	GRADES = 21311,
 	SCHEDULE = 22202,
 	DOCUMENT_DOWNLOAD = 1012,
+	SCHEDULER = 'scheduler_processor.php'
 }
 
 class User {
@@ -474,7 +475,9 @@ class Session {
 	| Fetching Pages |
 	\****************/
 	
-	public async fetchPage(pageId: Page, changesState = true, additionalQueryParameters: { [key: string]: string | number } = {}) {
+	public async fetchPage(pageId: Page | string, changesState = true, additionalQueryParameters: { [key: string]: string | number } = {}) {
+		// TODO: Stop throwing asserts
+		
 		assert(this.loggedIn, new Exception('fetchPage', 'Not logged in'))
 		
 		let stateLock: symbol | undefined
@@ -487,11 +490,12 @@ class Session {
 			assert(success, new Exception('fetchPage', 'Failed to retain stable state'))
 		}
 		
+		const pageStr = typeof pageId === 'string' ? `${pageId}?` : `index.php?pageid=${pageId}&`
 		let html: string
 		
 		try {
 			// TODO: Error handling
-			const response = await request(`${this.provider}/index.php?pageid=${pageId}&id=${this.id}&transid=${this.transId}${Object.entries(additionalQueryParameters).map(([ key, value ]) => `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('')}`, { method: 'GET', headers: { 'Cookie': this.cookieString } })
+			const response = await request(`${this.provider}/${pageStr}id=${this.id}&transid=${this.transId}${Object.entries(additionalQueryParameters).map(([ key, value ]) => `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('')}`, { method: 'GET', headers: { 'Cookie': this.cookieString } })
 			
 			html = response.content
 			
@@ -499,6 +503,7 @@ class Session {
 		} catch(e) {
 			this.handleLogout()
 			
+			// TODO: stop rethrowing
 			throw e
 		} finally{
 			if(changesState) {
@@ -544,11 +549,16 @@ class GradesParserResult extends ParserResult {
 	grades: Grade[] = []
 }
 
+class ScheduleParserResult extends ParserResult {
+	lessons: Lesson[] = []
+}
+
 /*********\
 | Parsers |
 \*********/
 
 // TODO: Persist Parser object without declaring it var, maybe using globalThis
+
 // eslint-disable-next-line no-var, @typescript-eslint/no-unused-vars
 var Parser = {
 	parseTeachers(content: string): TeachersParserResult {
@@ -1159,6 +1169,55 @@ var Parser = {
 		} catch(exception) {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('parseGrades', `${exception}`))
+		}
+		
+		return result
+	},
+	
+	parseSchedule(content: string): ScheduleParserResult {
+		const result = new ScheduleParserResult()
+		
+		try {
+			assertError(!!content, new ParserException('parseSchedule', `!!content (was ${content != undefined ? '\'\'' : undefined})`))
+		
+			let dom: DOMObject | undefined
+		
+			// TODO: Error handling
+			dom = DOMObject.parse(content)
+		
+			assertError(!!dom, new ParserException('parseSchedule', `!!dom (was ${undefined})`))
+		
+			dom = dom as DOMObject
+		
+			const events = dom.querySelector('data > event')
+		
+			assertFatal(!!events, new ParserException('parseSchedule', `!!events (was ${undefined})`))
+			
+			events.forEach(event => {
+				try {
+					const lesson: Partial<Lesson> = {}
+					
+					const startDate = event.querySelector('start_date')[0]?.innerText()
+					lesson.startDate = parseDate(startDate, `yyyy-MM-dd HH:mm${/:.*:/g.test(startDate) ? ':ss' : ''}`)
+					
+					const endDate = event.querySelector('end_date')[0]?.innerText()
+					lesson.endDate = parseDate(endDate, `yyyy-MM-dd HH:mm${/:.*:/g.test(endDate) ? ':ss' : ''}`)
+					
+					lesson.text = event.querySelector('text')[0]?.innerText()
+					lesson.comment = event.querySelector('kommentar')[0]?.innerText()
+					lesson.subjectAbbreviation = event.querySelector('kurskuerzel')[0]?.innerText()
+					lesson.room = event.querySelector('zimmerkuerzel')[0]?.innerText()
+					lesson.color = event.querySelector('color')[0]?.innerText()
+					
+					result.lessons.push(lesson as Lesson)
+				} catch(exception) {
+					if(exception instanceof Exception) result.exceptions.push(exception)
+					else result.exceptions.push(new JavaScriptException('parseSchedule', `${exception}`))
+				}
+			})
+		} catch(exception) {
+			if(exception instanceof Exception) result.exceptions.push(exception)
+			else result.exceptions.push(new JavaScriptException('parseSchedule', `${exception}`))
 		}
 		
 		return result
