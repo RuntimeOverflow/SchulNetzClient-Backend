@@ -246,6 +246,7 @@ export type Lesson = {
 	endDate: number
 	text: string
 	comment?: string
+	shortText?: string
 	subjectAbbreviation?: string
 	room?: string
 	color: string

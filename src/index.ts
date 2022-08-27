@@ -1205,6 +1205,7 @@ var Parser = {
 					
 					lesson.text = event.querySelector('text')[0]?.innerText()
 					lesson.comment = event.querySelector('kommentar')[0]?.innerText()
+					lesson.shortText = event.querySelector('fachkuerzel')[0]?.innerText()
 					lesson.subjectAbbreviation = event.querySelector('kurskuerzel')[0]?.innerText()
 					lesson.room = event.querySelector('zimmerkuerzel')[0]?.innerText()
 					lesson.color = event.querySelector('color')[0]?.innerText()
