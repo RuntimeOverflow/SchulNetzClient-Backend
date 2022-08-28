@@ -478,8 +478,6 @@ class Session {
 	public async fetchPage(pageId: Page | string, changesState = true, additionalQueryParameters: { [key: string]: string | number } = {}) {
 		// TODO: Stop throwing asserts
 		
-		assert(this.loggedIn, new Exception('fetchPage', 'Not logged in'))
-		
 		let stateLock: symbol | undefined
 		
 		if(changesState) {
@@ -489,6 +487,8 @@ class Session {
 			const success = await this.retainStableState()
 			assert(success, new Exception('fetchPage', 'Failed to retain stable state'))
 		}
+		
+		assert(this.loggedIn, new Exception('fetchPage', 'Not logged in'))
 		
 		const pageStr = typeof pageId === 'string' ? `${pageId}?` : `index.php?pageid=${pageId}&`
 		let html: string
@@ -535,6 +535,8 @@ class StudentsParserResult extends ParserResult {
 
 class TransactionsParserResult extends ParserResult {
 	transactions: Transaction[] = []
+	firstName?: string
+	lastName?: string
 }
 
 class AbsencesParserResult extends ParserResult {
@@ -702,8 +704,27 @@ var Parser = {
 		
 			assertFatal(!!tables, new ParserException('parseTransactions', `!!tables (was ${undefined})`))
 			assertFatal(tables.length == 2, new ParserException('parseTransactions', `tables.length == 2 (was ${tables.length})`))
+			assertFatal(!!tables[0], new ParserException('parseTransactions', `!!tables[0] (was ${undefined})`))
 			assertFatal(!!tables[1], new ParserException('parseTransactions', `!!tables[1] (was ${undefined})`))
+			
+			const nameTable = tables[0]
+			
+			const nameRows = nameTable.querySelector('tr')
+			
+			assertFatal(nameRows.length == 2, new ParserException('parseTransactions', `nameRows.length == 2 (was ${nameRows.length})`))
+			
+			const lastNameFields = nameRows[0].querySelector('td')
+			
+			assertFatal(lastNameFields.length == 2, new ParserException('parseTransactions', `lastNameFields.length == 2 (was ${lastNameFields.length})`))
+			
+			result.lastName = lastNameFields[1].innerText().trim()
+			
+			const firstNameFields = nameRows[1].querySelector('td')
+			
+			assertFatal(firstNameFields.length == 2, new ParserException('parseTransactions', `firstNameFields.length == 2 (was ${firstNameFields.length})`))
 		
+			result.firstName = firstNameFields[1].innerText().trim()
+			
 			const table = tables[1]
 		
 			const rows = table.querySelector('tr')
@@ -1356,7 +1377,8 @@ const CompareKeys: { [key in ObjectType]: (keyof ObjectTypeMap[key])[] } = {
 
 const equal = (first: unknown, second: unknown) => {
 	if(!same(first, second)) return false
-	if(typeof first !== 'object') return true
+	else if(first == null) return true
+	else if(typeof first !== 'object') return true
 	
 	for(const key of CompareKeys[(first as { $type: ObjectType }).$type]) {
 		if(!equal((first as AnyObjectType)[key], (second as AnyObjectType)[key])) return false
