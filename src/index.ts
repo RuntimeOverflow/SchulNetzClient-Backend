@@ -526,33 +526,33 @@ class ParserResult {
 }
 
 class TeachersParserResult extends ParserResult {
-	teachers: Teacher[] = []
+	teachers?: Teacher[] = []
 }
 
 class StudentsParserResult extends ParserResult {
-	students: Student[] = []
+	students?: Student[] = []
 }
 
 class TransactionsParserResult extends ParserResult {
-	transactions: Transaction[] = []
+	transactions?: Transaction[] = []
 	firstName?: string
 	lastName?: string
 }
 
 class AbsencesParserResult extends ParserResult {
-	absences: Absence[] = []
-	absenceReports: AbsenceReport[] = []
-	openAbsences: OpenAbsence[] = []
-	lateAbsences: LateAbsence[] = []
+	absences?: Absence[] = []
+	absenceReports?: AbsenceReport[] = []
+	openAbsences?: OpenAbsence[] = []
+	lateAbsences?: LateAbsence[] = []
 }
 
 class GradesParserResult extends ParserResult {
-	subjects: Subject[] = []
-	grades: Grade[] = []
+	subjects?: Subject[] = []
+	grades?: Grade[] = []
 }
 
 class ScheduleParserResult extends ParserResult {
-	lessons: Lesson[] = []
+	lessons?: Lesson[] = []
 }
 
 /*********\
@@ -598,7 +598,7 @@ var Parser = {
 					teacher.abbreviation = matches[2][1].trim().replace(/""/g, '"')
 					teacher.email = matches[3][1].trim().replace(/""/g, '"')
 				
-					result.teachers.push(teacher as Teacher)
+					result.teachers?.push(teacher as Teacher)
 				} catch(exception) {
 					if(exception instanceof Exception) result.exceptions.push(exception)
 					else result.exceptions.push(new JavaScriptException('parseTeachers', `${exception}`))
@@ -608,6 +608,8 @@ var Parser = {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('parseTeachers', `${exception}`))
 		}
+		
+		if(result.teachers?.length === 0) result.teachers = undefined
 		
 		return result
 	},
@@ -671,7 +673,7 @@ var Parser = {
 					student.additionalClass = matches[10][1].trim().replace(/""/g, '"')
 					student.status = matches[11][1].trim().replace(/""/g, '"')
 			
-					result.students.push(student as Student)
+					result.students?.push(student as Student)
 				} catch(exception) {
 					if(exception instanceof Exception) result.exceptions.push(exception)
 					else result.exceptions.push(new JavaScriptException('parseStudents', `${exception}`))
@@ -681,6 +683,8 @@ var Parser = {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('parseStudents', `${exception}`))
 		}
+		
+		if(result.students?.length === 0) result.students = undefined
 		
 		return result
 	},
@@ -771,7 +775,7 @@ var Parser = {
 					transaction.amount = parseFloat(amountHTML)
 					assertFatal(!isNaN(transaction.amount), new ParserException('parseTransactions', `!isNaN(transaction.amount) (was ${NaN})`))
 			
-					result.transactions.push(transaction as Transaction)
+					result.transactions?.push(transaction as Transaction)
 				} catch(exception) {
 					if(exception instanceof Exception) result.exceptions.push(exception)
 					else result.exceptions.push(new JavaScriptException('parseTransactions', `${exception}`))
@@ -781,6 +785,8 @@ var Parser = {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('parseTransactions', `${exception}`))
 		}
+		
+		if(result.transactions?.length === 0) result.transactions = undefined
 		
 		return result
 	},
@@ -867,7 +873,7 @@ var Parser = {
 					absence.lessonCount = parseInt(lessonCount)
 					assertFatal(!isNaN(absence.lessonCount), new ParserException('parseAbsences', `!isNaN(absence.lessonCount) (was ${NaN})`))
 			
-					result.absences.push(absence as Absence)
+					result.absences?.push(absence as Absence)
 			
 					let reportsTable: DOMObject
 					if(absenceRowIndex + 1 < absenceRows.length && ([ reportsTable ] = absenceRows[absenceRowIndex + 1].querySelector('tr table')) && reportsTable) {
@@ -918,7 +924,7 @@ var Parser = {
 								absenceReport.comment = absenceReportFields[3].innerText()?.trim()
 								assertFatal(absenceReport.comment != undefined, new ParserException('parseAbsences', `absenceReport.comment (was ${undefined})`))
 					
-								result.absenceReports.push(absenceReport as AbsenceReport)
+								result.absenceReports?.push(absenceReport as AbsenceReport)
 							} catch(exception) {
 								if(exception instanceof Exception) result.exceptions.push(exception)
 								else result.exceptions.push(new JavaScriptException('parseAbsences', `${exception}`))
@@ -979,7 +985,7 @@ var Parser = {
 					openAbsence.lessonAbbreviation = openAbsenceFields[2].innerText()?.trim()
 					assertFatal(openAbsence.lessonAbbreviation != undefined, new ParserException('parseAbsences', `openAbsence.lessonAbbreviation (was ${undefined})`))
 			
-					result.openAbsences.push(openAbsence as OpenAbsence)
+					result.openAbsences?.push(openAbsence as OpenAbsence)
 				} catch(exception) {
 					if(exception instanceof Exception) result.exceptions.push(exception)
 					else result.exceptions.push(new JavaScriptException('parseAbsences', `${exception}`))
@@ -1037,7 +1043,7 @@ var Parser = {
 						assertFatal(!!excused, new ParserException('parseAbsences', `!!excused (was ${excused != undefined ? '\'\'' : undefined})`))
 						lateAbsence.excused = excused === 'Ja'
 				
-						result.lateAbsences.push(lateAbsence as LateAbsence)
+						result.lateAbsences?.push(lateAbsence as LateAbsence)
 					} catch(exception) {
 						if(exception instanceof Exception) result.exceptions.push(exception)
 						else result.exceptions.push(new JavaScriptException('parseAbsences', `${exception}`))
@@ -1048,6 +1054,11 @@ var Parser = {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('parseAbsences', `${exception}`))
 		}
+		
+		if(result.absences?.length === 0) result.absences = undefined
+		if(result.absenceReports?.length === 0) result.absenceReports = undefined
+		if(result.openAbsences?.length === 0) result.openAbsences = undefined
+		if(result.lateAbsences?.length === 0) result.lateAbsences = undefined
 		
 		return result
 	},
@@ -1106,7 +1117,7 @@ var Parser = {
 			
 					subject.gradesConfirmed = a.length <= 0
 			
-					result.subjects.push(subject as Subject)
+					result.subjects?.push(subject as Subject)
 			
 					let gradesRow: DOMObject[]
 					const gradeRows: DOMObject[] = []
@@ -1171,7 +1182,7 @@ var Parser = {
 									weightTotal += weight
 								}
 					
-								result.grades.push(grade as Grade)
+								result.grades?.push(grade as Grade)
 							} catch(exception) {
 								if(exception instanceof Exception) result.exceptions.push(exception)
 								else result.exceptions.push(new JavaScriptException('parseGrades', `${exception}`))
@@ -1191,6 +1202,9 @@ var Parser = {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('parseGrades', `${exception}`))
 		}
+		
+		if(result.subjects?.length === 0) result.subjects = undefined
+		if(result.grades?.length === 0) result.grades = undefined
 		
 		return result
 	},
@@ -1231,7 +1245,7 @@ var Parser = {
 					lesson.room = event.querySelector('zimmerkuerzel')[0]?.innerText()
 					lesson.color = event.querySelector('color')[0]?.innerText()
 					
-					result.lessons.push(lesson as Lesson)
+					result.lessons?.push(lesson as Lesson)
 				} catch(exception) {
 					if(exception instanceof Exception) result.exceptions.push(exception)
 					else result.exceptions.push(new JavaScriptException('parseSchedule', `${exception}`))
@@ -1241,6 +1255,8 @@ var Parser = {
 			if(exception instanceof Exception) result.exceptions.push(exception)
 			else result.exceptions.push(new JavaScriptException('parseSchedule', `${exception}`))
 		}
+		
+		if(result.lessons?.length === 0) result.lessons = undefined
 		
 		return result
 	},
