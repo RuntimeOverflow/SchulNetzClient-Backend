@@ -1,7 +1,7 @@
-import { Absence, AbsenceReport, cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, Grade, info, LateAbsence, Lesson, OpenAbsence, parseDate, request, Response, Student, Subject, Teacher, Transaction, wait, warn } from './env.js'
+import { Absence, AbsenceReport, Grade, LateAbsence, Lesson, OpenAbsence, Student, Subject, Teacher, Transaction } from './types'
+import { cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, info, parseDate, request, Response, wait, warn } from './vendor'
 
 // TODO: Error recovery especially for parsers
-// TODO: tscc?
 
 /************\
 | Exceptions |
@@ -158,13 +158,13 @@ class Session {
 	
 	private id?: string
 	private transId?: string
-	private lastVisitedPageId?: number
+	private lastVisitedPageId?: Page
 	
 	private verifyPageAndExtractIds(dom: DOMObject) {
 		const links = dom.querySelector('#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a')
 		assert(links.length == 1, new ParserException('verifyPageAndExtractIds', 'dom.querySelector(\'#header-menu ul[for=sn-main-menu] > li:nth-child(1) > a\').length != 1'))
 		
-		const { id, transid } = extractQueryParameters(links[0].getAttribute('href'), this.provider)
+		const { id, transid } = extractQueryParameters(links[0].getAttribute('href'), this.provider) ?? {}
 		assert(!!id, new ParserException('verifyPageAndExtractIds', `id == null || id == '' (was ${id != undefined ? '\'\'' : undefined})`))
 		assert(!!transid, new ParserException('verifyPageAndExtractIds', `transid == null || transid == '' (was ${transid != undefined ? '\'\'' : undefined})`))
 		this.id = id as string
@@ -410,7 +410,7 @@ class Session {
 			
 			if(html.status != 200) {
 				if(html.status == 302 && html.headers['location']) {
-					const code = parseInt(extractQueryParameters(html.headers['location'])['mode'])
+					const code = parseInt((extractQueryParameters(html.headers['location']) ?? {})['mode'])
 					
 					if(!isNaN(code)) return new SchulNetzException('login', 'login failed', code)
 				}
@@ -475,7 +475,7 @@ class Session {
 	| Fetching Pages |
 	\****************/
 	
-	public async fetchPage(pageId: Page | string, changesState = true, additionalQueryParameters: { [key: string]: string | number } = {}) {
+	public async fetchPage(pageId: Page, changesState = true, additionalQueryParameters: { [key: string]: string | number } = {}) {
 		// TODO: Stop throwing asserts
 		
 		let stateLock: symbol | undefined
@@ -514,6 +514,12 @@ class Session {
 		}
 		
 		return html
+	}
+	
+	public async prefetchPage(pageId: Page, changesState = true, additionalQueryParameters: { [key: string]: string | number } = {}) {
+		if(this.lastVisitedPageId == pageId) return
+		
+		this.fetchPage(pageId, changesState, additionalQueryParameters)
 	}
 }
 
@@ -1387,7 +1393,7 @@ const CompareKeys: { [key in ObjectType]: (keyof ObjectTypeMap[key])[] } = {
 	[ObjectType.ABSENCE_REPORT]: ['comment'],
 	[ObjectType.OPEN_ABSENCE]: [],
 	[ObjectType.LATE_ABSENCE]: ['excused'],
-	[ObjectType.SUBJECT]: ['name', 'gradesConfirmed', 'hiddenGrades'], // currently excluding `average`
+	[ObjectType.SUBJECT]: ['name', 'gradesConfirmed', 'hiddenGrades', 'average'],
 	[ObjectType.GRADE]: ['grade', 'details', 'weight'],
 }
 
