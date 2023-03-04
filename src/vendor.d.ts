@@ -6,14 +6,12 @@ export type Response = {
 
 export function request(url: string, options?: { method?: string, headers?: { [key: string]: string }, body?: string, ignoreStatusCode?: boolean }): Promise<Response>
 
-export type DOMObject = {
+export class DOMObject {
+	static parse(html: string): DOMObject
+	
 	querySelector(selector: string): DOMObject[]
 	innerText(): string
 	getAttribute(attribute: string): string
-}
-
-export const DOMObject: {
-	parse(html: string): DOMObject
 }
 
 export type WaitPromise = Promise<void> & { waitKey: symbol }
@@ -28,6 +26,3 @@ export function info(msg: string): void
 export function warn(msg: string): void
 export function error(msg: string): void
 export function fatal(msg: string): void
-
-
-

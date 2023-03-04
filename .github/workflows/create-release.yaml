@@ -15,7 +15,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16
-      - run: npm install
+      - run: npm i -g typescript terser
       - name: Build
         run: tools/build_dist.sh backend
       - uses: softprops/action-gh-release@v1

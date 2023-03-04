@@ -1,5 +1,11 @@
 import { Absence, AbsenceReport, Grade, LateAbsence, Lesson, OpenAbsence, Student, Subject, Teacher, Transaction } from './types.js'
-import { cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, info, parseDate, request, Response, wait, warn } from './vendor/nodejs.js'
+import { DOMObject as _DOMObject, Response } from './vendor.js'
+type DOMObject = _DOMObject
+
+const { cancelWait, error, DOMObject, extractQueryParameters, fatal, generateUUID, info, parseDate, request, wait, warn } = await (async () => {
+	// eslint-disable-next-line no-constant-condition
+	return await import((() => './vendor/nodejs.js')())
+})()
 
 // TODO: Error recovery especially for parsers
 
