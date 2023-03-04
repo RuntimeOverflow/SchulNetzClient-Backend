@@ -3,7 +3,7 @@ import { JSDOM } from 'jsdom'
 import { DateTime } from 'luxon'
 
 export async function request(url: string, options?: { method?: string, headers?: { [key: string]: string }, body?: string, ignoreStatusCode?: boolean }): Promise<Response> {
-	const response = await axios({ url: url, method: options?.method as Method, headers: {...options?.headers, 'User-Agent': 'SchulNetz Client Test Environment'}, data: options?.body, maxRedirects: 0, validateStatus: () =>  true })
+	const response = await axios({ url: url, method: options?.method as Method, headers: {...options?.headers/*, 'User-Agent': 'SchulNetz Client Test Environment'*/}, data: options?.body, maxRedirects: 0, validateStatus: () =>  true })
 	
 	if(!response) {
 		throw `${url}: NO HTTP RESPONSE`
@@ -115,7 +115,6 @@ export class DOMObject {
 	}
 	
 	public static parse(html: string) {
-		DOMParser
 		const obj = (new JSDOM(html)).window.document.documentElement
 		return new DOMObject(obj)
 	}

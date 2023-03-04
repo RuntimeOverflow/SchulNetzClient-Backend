@@ -1,5 +1,5 @@
-import { Absence, AbsenceReport, Grade, LateAbsence, Lesson, OpenAbsence, Student, Subject, Teacher, Transaction } from './types'
-import { cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, info, parseDate, request, Response, wait, warn } from './vendor'
+import { Absence, AbsenceReport, Grade, LateAbsence, Lesson, OpenAbsence, Student, Subject, Teacher, Transaction } from './types.js'
+import { cancelWait, DOMObject, error, extractQueryParameters, fatal, generateUUID, info, parseDate, request, Response, wait, warn } from './vendor/nodejs.js'
 
 // TODO: Error recovery especially for parsers
 
@@ -1378,7 +1378,7 @@ const same = (first: unknown, second: unknown) => {
 		if(!('$type' in first) || (first as { $type: unknown }).$type != (second as { $type: unknown }).$type || typeof (first as { $type: unknown }).$type in ObjectType || !((first as { $type: ObjectType }).$type in ObjectType)) return false
 		
 		for(const key of IdenitityKeys[(first as { $type: ObjectType }).$type]) {
-			if(!same((first as AnyObjectType)[key], (second as AnyObjectType)[key])) return false
+			if(!same((first as unknown as AnyObjectType)[key], (second as AnyObjectType)[key])) return false
 		}
 		
 		return true
